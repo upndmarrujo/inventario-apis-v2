@@ -488,53 +488,33 @@ const DEFAULT_LISTS = {
 };
 
 /* ==================================================================================
-   NOTIFICACIÓN A LA TORRE DE CONTROL (vía relay serverless -> GitHub Actions -> correo)
-   Esta página es estática (GitHub Pages) y no puede llamar a la API de GitHub de forma
-   segura por sí sola — necesitaría un token con permisos de escritura visible en el código
-   fuente. Por eso se llama a un relay (Cloudflare Worker) que NO expone ningún secreto al
-   navegador; el relay es quien guarda el token y dispara el evento repository_dispatch que
-   activa el workflow de GitHub Actions encargado de enviar el correo.
-   Reemplaza NOTIFY_RELAY_URL por la URL real de tu Worker una vez desplegado (ver
-   instrucciones de despliegue). Mientras contenga "TU-SUBDOMINIO" la notificación se omite
-   silenciosamente y el resto de la app sigue funcionando con normalidad.
+   EXCEL COMO FUENTE UNICA DE VERDAD EN GITHUB (100% dentro de github.com, sin servicios externos)
+   El Excel oficial vive en el mismo repositorio que este HTML, en la ruta GITHUB_DATA_PATH.
+   Al abrir la app se lee directo desde la API de contenidos de GitHub (lectura anonima, sin
+   token, porque el repo es publico) y se carga automaticamente.
+   Para GUARDAR no se usa ningun servicio externo: el boton "Enviar a Torre de Control" (o
+   "Guardar cambios en GitHub" para acciones de gobierno) descarga el Excel actualizado a la
+   computadora de quien lo presiona, y abre las paginas exactas de GitHub para (1) subir ese
+   archivo a la carpeta de datos del repositorio y, si hace falta avisar a alguien, (2) crear
+   un Issue prellenado que dispara por si solo un workflow de GitHub Actions para el correo.
+   No hace falta ningun token en el navegador ni ningun Worker: todo el paso de escritura lo
+   hace la propia persona, con su sesion de GitHub, usando la interfaz web de GitHub.
+   Reemplaza GITHUB_OWNER/GITHUB_REPO por los datos reales de tu repositorio (ver la guía de
+   publicación). Mientras contengan los valores de ejemplo, la app sigue funcionando con
+   Importar/Exportar manual de Excel como hasta ahora.
    ================================================================================== */
-const NOTIFY_RELAY_URL = 'https://inventario-apis-notify-relay.TU-SUBDOMINIO.workers.dev';
-
-/* ==================================================================================
-   EXCEL COMO FUENTE UNICA DE VERDAD EN GITHUB
-   El Excel oficial vive en el mismo repositorio que este HTML (repo publico), en la ruta
-   GITHUB_DATA_PATH. Al abrir la app se lee directo desde la API de contenidos de GitHub
-   (lectura anonima, sin token, porque el repo es publico). Para GUARDAR si hace falta el
-   mismo relay (Worker) que ya usamos para las notificaciones, porque escribir requiere un
-   token con permiso de escritura que no puede vivir en una pagina publica.
-   Reemplaza GITHUB_OWNER/GITHUB_REPO por los datos reales de tu repositorio (ver
-   instrucciones de despliegue). Mientras contengan los valores de ejemplo, la app sigue
-   funcionando con Importar/Exportar manual de Excel como hasta ahora.
-   ================================================================================== */
-const GITHUB_OWNER = 'upndmarrujo';
-const GITHUB_REPO = 'inventario-apis-v2';
+const GITHUB_OWNER = 'TU-USUARIO';
+const GITHUB_REPO = 'NOMBRE-DEL-REPO';
 const GITHUB_BRANCH = 'main';
 const GITHUB_DATA_PATH = 'data/inventario.xlsx';
 function githubConfigured(){
-  return !!(GITHUB_OWNER && !GITHUB_OWNER.includes('upndmarrujo') && GITHUB_REPO && !GITHUB_REPO.includes('inventario-apis-v2'));
-}
-function relayConfigured(){
-  return !!(NOTIFY_RELAY_URL && !NOTIFY_RELAY_URL.includes('TU-SUBDOMINIO'));
+  return !!(GITHUB_OWNER && !GITHUB_OWNER.includes('TU-USUARIO') && GITHUB_REPO && !GITHUB_REPO.includes('NOMBRE-DEL-REPO'));
 }
 function base64ToArrayBuffer(b64){
   const binary = atob(b64.replace(/\n/g,''));
   const bytes = new Uint8Array(binary.length);
   for(let i=0;i<binary.length;i++) bytes[i] = binary.charCodeAt(i);
   return bytes.buffer;
-}
-function arrayBufferToBase64(buf){
-  const bytes = new Uint8Array(buf);
-  let binary = '';
-  const chunk = 0x8000;
-  for(let i=0;i<bytes.length;i+=chunk){
-    binary += String.fromCharCode.apply(null, bytes.subarray(i, i+chunk));
-  }
-  return btoa(binary);
 }
 async function loadFromGitHub(){
   if(!githubConfigured()) return false;
@@ -545,7 +525,6 @@ async function loadFromGitHub(){
     const json = await resp.json();
     if(!json.content){ console.warn('[loadFromGitHub] Respuesta sin contenido', json); return false; }
     loadWorkbookFromArrayBuffer(base64ToArrayBuffer(json.content), GITHUB_DATA_PATH.split('/').pop());
-    GITHUB_FILE_SHA = json.sha;
     META.lastGitHubLoad = new Date().toISOString();
     return true;
   }catch(e){
@@ -555,69 +534,66 @@ async function loadFromGitHub(){
 }
 async function actualizarDesdeGitHub(){
   if(PENDING_BATCH.length){
-    const ok = confirm(`Tienes ${PENDING_BATCH.length} componente(s) sin enviar a la Torre de Control. Si actualizas ahora desde GitHub vas a perder esos cambios locales. ¿Continuar de todas formas?`);
+    const ok = confirm(`Tienes ${PENDING_BATCH.length} cambio(s) sin guardar en GitHub. Si actualizas ahora vas a perder esos cambios locales. ¿Continuar de todas formas?`);
     if(!ok) return;
   }
   const ok = await loadFromGitHub();
   if(ok){ PENDING_BATCH=[]; scheduleSave(); toast('Excel actualizado con la version mas reciente de GitHub.','ok'); renderApp(); }
   else toast('No se pudo actualizar desde GitHub. Revisa tu conexion.','bad');
 }
-async function syncToGitHub(batchForEmail){
-  if(!githubConfigured()){ toast('La conexion con GitHub no esta configurada todavia. Ver instrucciones de despliegue.','bad'); return false; }
-  if(!relayConfigured()){ toast('El relay de sincronizacion no esta configurado todavia. Ver instrucciones de despliegue.','bad'); return false; }
-  GITHUB_SYNCING = true; renderApp();
-  try{
-    const wb = buildWorkbook();
-    const buf = XLSX.write(wb, {bookType:'xlsx', type:'array'});
-    const contentBase64 = arrayBufferToBase64(buf);
-    const resumen = (batchForEmail||[]).map(it=>`- ${it.tipoComponente||''} ${it.id} · ${it.nombre} (${it.accion}) — proyecto ${it.proyecto||'—'}, arquitecto ${it.arquitecto||'—'}`).join('\n') || '(sin detalle de items)';
-    const resp = await fetch(NOTIFY_RELAY_URL, {
-      method: 'POST',
-      headers: {'Content-Type':'application/json'},
-      body: JSON.stringify({
-        type: 'sync',
-        path: GITHUB_DATA_PATH,
-        branch: GITHUB_BRANCH,
-        contentBase64,
-        expectedSha: GITHUB_FILE_SHA,
-        notify: !!(batchForEmail && batchForEmail.length),
-        batch: batchForEmail||[],
-        resumen
-      })
-    });
-    const data = await resp.json().catch(()=>({}));
-    if(resp.status===409){
-      toast('Alguien mas guardo el Excel en GitHub antes que tu. Presiona "Actualizar desde GitHub" para traer la version mas reciente y vuelve a intentar.','bad');
-      return false;
-    }
-    if(!resp.ok){
-      toast('No se pudo guardar en GitHub: '+(data.error||resp.status),'bad');
-      return false;
-    }
-    GITHUB_FILE_SHA = data.newSha || GITHUB_FILE_SHA;
-    META.lastGitHubSave = new Date().toISOString();
-    return true;
-  }catch(e){
-    console.error(e);
-    toast('No se pudo contactar al relay para guardar en GitHub.','bad');
-    return false;
-  }finally{
-    GITHUB_SYNCING = false; renderApp();
-  }
+/* Ruta de la carpeta (sin el nombre del archivo) donde vive el Excel, para armar el link de subida de GitHub. */
+function githubDataDir(){
+  const idx = GITHUB_DATA_PATH.lastIndexOf('/');
+  return idx>=0 ? GITHUB_DATA_PATH.slice(0, idx) : '';
 }
-async function enviarATorreControl(){
-  if(!PENDING_BATCH.length){ toast('No hay componentes pendientes de enviar.','info'); return; }
+function githubUploadUrl(){
+  return `https://github.com/${GITHUB_OWNER}/${GITHUB_REPO}/upload/${GITHUB_BRANCH}/${githubDataDir()}`;
+}
+function githubIssueUrl(batch){
+  const cantidad = batch.length;
+  const resumen = batch.map(it=>`- ${it.tipoComponente||''} ${it.id} · ${it.nombre} (${it.accion})${it.proyecto?` — proyecto ${it.proyecto}`:''}${it.arquitecto?`, arquitecto ${it.arquitecto}`:''}`).join('\n') || '(sin detalle)';
+  const titulo = `[Inventario APIs] ${cantidad} componente(s) pendiente(s) de validación`;
+  const cuerpo = `Se enviaron ${cantidad} componente(s) al Inventario Centralizado de APIs, pendientes de validación de la Torre de Control.\n\n${resumen}\n\n---\nRecordatorio: el archivo ${GITHUB_DATA_PATH.split('/').pop()} actualizado ya se descargó a la computadora de quien creó este Issue. Debe subirse a \`${GITHUB_DATA_PATH}\` en este repositorio (si aún no se hizo): ${githubUploadUrl()}`;
+  return `https://github.com/${GITHUB_OWNER}/${GITHUB_REPO}/issues/new?title=${encodeURIComponent(titulo)}&body=${encodeURIComponent(cuerpo)}`;
+}
+/* Descarga el Excel actualizado con el nombre exacto que espera el repositorio, listo para arrastrar en GitHub. */
+function descargarExcelParaGitHub(){
+  const wb = buildWorkbook();
+  const fname = GITHUB_DATA_PATH.split('/').pop() || 'inventario.xlsx';
+  XLSX.writeFile(wb, fname);
+}
+function abrirModalEnvioGitHub(batch, necesitaAviso){
+  const resumenHtml = batch.map(it=>`<li>${badgeForTipoComponente(it.tipoComponente||'')} <code class="idtag">${esc(it.id)}</code> · ${esc(it.nombre)} — <i>${esc(it.accion)}</i></li>`).join('');
+  const uploadUrl = githubUploadUrl();
+  const body = `
+    <h3>Terminar de guardar en GitHub</h3>
+    <p class="hint">Se descargó <b>${esc(GITHUB_DATA_PATH.split('/').pop())}</b> a tu computadora con estos cambios — súbelo a GitHub para que quede oficial:</p>
+    <ul>${resumenHtml}</ul>
+    <ol style="padding-left:18px; line-height:2;">
+      <li>Sube el archivo descargado a <code>${esc(GITHUB_DATA_PATH)}</code> (reemplaza el existente).
+        <div style="margin-top:6px;"><button type="button" class="btn small gold" onclick="window.open('${uploadUrl}','_blank')">Abrir GitHub para subir el archivo ›</button></div>
+      </li>
+      ${necesitaAviso ? `<li style="margin-top:10px;">Avisa a la Torre de Control creando un Issue con el detalle (dispara el correo automático).
+        <div style="margin-top:6px;"><button type="button" class="btn small gold" onclick="window.open('${githubIssueUrl(batch)}','_blank')">Abrir Issue prellenado ›</button></div>
+      </li>` : ''}
+    </ol>
+    <div class="formbar">
+      <button type="button" class="btn ghost" onclick="closeModal()">Cerrar</button>
+    </div>
+  `;
+  openModal(body);
+}
+/* Botón principal de la barra superior: junta todo lo pendiente (creaciones/modificaciones/reutilizaciones
+   del Arquitecto y validaciones de la Torre de Control) y guía los pasos para guardarlo en GitHub. */
+function enviarATorreControl(){
+  if(!PENDING_BATCH.length){ toast('No hay cambios pendientes de guardar.','info'); return; }
   const batch = PENDING_BATCH.slice();
-  const ok = await syncToGitHub(batch);
-  if(ok){
-    PENDING_BATCH = [];
-    scheduleSave();
-    toast(`${batch.length} componente(s) guardado(s) en el Excel oficial de GitHub y notificado(s) por correo a la Torre de Control.`,'ok');
-    renderApp();
-  }
-}
-function syncGovernanceAction(){
-  syncToGitHub([]).then(ok=>{ if(ok) toast('Cambio guardado en el Excel oficial de GitHub.','ok'); });
+  const necesitaAviso = batch.some(it=>it.needsNotify);
+  descargarExcelParaGitHub();
+  PENDING_BATCH = [];
+  scheduleSave();
+  renderApp();
+  abrirModalEnvioGitHub(batch, necesitaAviso);
 }
 
 /* ==================================================================================
@@ -625,9 +601,7 @@ function syncGovernanceAction(){
    ================================================================================== */
 let DB = { apis:[], ops:[], hist:[], deps:[], listas: JSON.parse(JSON.stringify(DEFAULT_LISTS)) };
 let META = { fileName: null, lastImport: null, lastSaved: null };
-let GITHUB_FILE_SHA = null;
 let PENDING_BATCH = [];
-let GITHUB_SYNCING = false;
 // (rol único: Arquitecto de Solución con acceso completo — sin restricciones por rol)
 let TAB = 'dashboard';
 let STORAGE_OK = true;
@@ -800,7 +774,7 @@ function scheduleSave(){
 }
 async function persistAll(){
   try{
-    await window.storage.set('inventario-apis-db', JSON.stringify({DB, META, PENDING_BATCH, GITHUB_FILE_SHA}), true);
+    await window.storage.set('inventario-apis-db', JSON.stringify({DB, META, PENDING_BATCH}), true);
     STORAGE_OK = true;
     META.lastSaved = new Date().toISOString();
   }catch(e){
@@ -819,7 +793,6 @@ async function loadPersisted(){
         DB = Object.assign({apis:[],ops:[],hist:[],deps:[],listas:JSON.parse(JSON.stringify(DEFAULT_LISTS))}, parsed.DB);
         META = Object.assign(META, parsed.META||{});
         PENDING_BATCH = Array.isArray(parsed.PENDING_BATCH) ? parsed.PENDING_BATCH : [];
-        GITHUB_FILE_SHA = parsed.GITHUB_FILE_SHA || null;
         return true;
       }
     }
@@ -1052,13 +1025,15 @@ function renderSidebar(){
 }
 
 function githubSyncControls(){
-  if(GITHUB_SYNCING){
-    return `<span class="pill-role" style="border-color:var(--info);color:var(--info);">⏳ Guardando en GitHub…</span>`;
-  }
   const pending = PENDING_BATCH.length;
-  const sendBtn = pending
-    ? `<button class="btn primary" onclick="enviarATorreControl()">📨 Enviar a Torre de Control <span class="badge warn" style="margin-left:6px;">${pending}</span></button>`
-    : `<span class="pill-role" title="Todo lo que registraste ya está guardado en el Excel oficial de GitHub">✓ Sin cambios pendientes de enviar</span>`;
+  let sendBtn;
+  if(!pending){
+    sendBtn = `<span class="pill-role" title="Todo lo que registraste ya está guardado en el Excel oficial de GitHub">✓ Sin cambios pendientes de guardar</span>`;
+  } else {
+    const necesitaAviso = PENDING_BATCH.some(it=>it.needsNotify);
+    const label = necesitaAviso ? '📨 Enviar a Torre de Control' : '💾 Guardar cambios en GitHub';
+    sendBtn = `<button class="btn primary" onclick="enviarATorreControl()">${label} <span class="badge warn" style="margin-left:6px;">${pending}</span></button>`;
+  }
   const refreshBtn = githubConfigured()
     ? `<button class="btn ghost" title="Trae la versión más reciente del Excel oficial desde GitHub" onclick="actualizarDesdeGitHub()">↻ Actualizar desde GitHub</button>`
     : '';
@@ -1926,7 +1901,7 @@ function submitCrear(ev){
   PENDING_BATCH.push({
     id, nombre: apiRow['Nombre API'], tipoComponente,
     accion: 'Creación', proyecto: histRow['Proyecto'], arquitecto: histRow['Arquitecto Solución'],
-    fecha: histRow['Fecha Registro']
+    fecha: histRow['Fecha Registro'], needsNotify: true
   });
   scheduleSave();
   toast(`${tipoComponente} ${id} registrado${opIds.length?` con ${opIds.length} operación(es)`:''}${nDeps?` y ${nDeps} dependencia(s)`:''}. Queda en tu lote local — presiona "Enviar a Torre de Control" cuando termines de cargar todos los componentes.`,'ok');
@@ -2164,7 +2139,7 @@ function submitModificar(ev, id){
   PENDING_BATCH.push({
     id, nombre: a['Nombre API'], tipoComponente: tipoComponenteOf(a),
     accion: histRow['Acción'], proyecto: histRow['Proyecto'], arquitecto: histRow['Arquitecto Solución'],
-    fecha: histRow['Fecha Registro']
+    fecha: histRow['Fecha Registro'], needsNotify: true
   });
   scheduleSave();
   toast(`API ${id} actualizada (v${versionAntes} → v${a['Versión Actual']})${nDeps?` con ${nDeps} dependencia(s) nueva(s)`:''}. Queda en tu lote local — presiona "Enviar a Torre de Control" cuando termines.`,'ok');
@@ -2258,7 +2233,7 @@ function submitReutilizar(ev, id){
   PENDING_BATCH.push({
     id, nombre: a['Nombre API'], tipoComponente: tipoComponenteOf(a),
     accion: 'Reutilización', proyecto: histRow['Proyecto'], arquitecto: histRow['Arquitecto Solución'],
-    fecha: histRow['Fecha Registro']
+    fecha: histRow['Fecha Registro'], needsNotify: true
   });
   scheduleSave();
   toast(`Reutilización de ${id} registrada. Queda en tu lote local — presiona "Enviar a Torre de Control" cuando termines.`,'ok');
@@ -2787,10 +2762,14 @@ function marcarPublicado(histId){
   if(!row) return;
   row['Estado de Validación']='Publicado';
   row['Fecha Validación']=new Date().toISOString().slice(0,10);
+  const a = findApi(row['ID API']);
+  PENDING_BATCH.push({
+    id: row['ID API'], nombre: a?a['Nombre API']:'', tipoComponente: a?tipoComponenteOf(a):'',
+    accion: 'Publicación', fecha: row['Fecha Validación'], needsNotify: false
+  });
   scheduleSave();
-  toast(`Solicitud de ${row['ID API']} publicada en el inventario oficial.`,'ok');
+  toast(`Solicitud de ${row['ID API']} publicada en el inventario oficial. Recuerda guardar los cambios en GitHub.`,'ok');
   renderApp();
-  syncGovernanceAction();
 }
 function abrirObservarModal(histId){
   const row = DB.hist.find(h=>h['ID Historial']===histId);
@@ -2816,21 +2795,29 @@ function submitObservar(ev, histId){
   row['Estado de Validación']='Observado';
   row['Observación Torre de Control']=texto;
   row['Fecha Validación']=new Date().toISOString().slice(0,10);
+  const a = findApi(row['ID API']);
+  PENDING_BATCH.push({
+    id: row['ID API'], nombre: a?a['Nombre API']:'', tipoComponente: a?tipoComponenteOf(a):'',
+    accion: 'Observación', fecha: row['Fecha Validación'], needsNotify: false
+  });
   scheduleSave();
-  toast(`Observación registrada para ${row['ID API']}. El Arquitecto debe corregir y reenviar.`,'bad');
+  toast(`Observación registrada para ${row['ID API']}. El Arquitecto debe corregir y reenviar. Recuerda guardar los cambios en GitHub.`,'bad');
   closeModal();
   renderApp();
-  syncGovernanceAction();
   return false;
 }
 function marcarCorregido(histId){
   const row = DB.hist.find(h=>h['ID Historial']===histId);
   if(!row) return;
   row['Estado de Validación']='Corregido';
+  const a = findApi(row['ID API']);
+  PENDING_BATCH.push({
+    id: row['ID API'], nombre: a?a['Nombre API']:'', tipoComponente: a?tipoComponenteOf(a):'',
+    accion: 'Corrección', fecha: new Date().toISOString().slice(0,10), needsNotify: false
+  });
   scheduleSave();
-  toast('Marcado como Corregido — vuelve a la cola de la Torre de Control para revalidación.','ok');
+  toast('Marcado como Corregido — recuerda guardar los cambios en GitHub para que la Torre de Control lo vea en su bandeja.','ok');
   renderApp();
-  syncGovernanceAction();
 }
 
 /* ---------------------------------------------------------------- CRUCE APIs x PROYECTOS */
@@ -3115,7 +3102,7 @@ function viewGuia(){
       <p>Al registrar o modificar un componente, la consola te lleva directo a su ficha para que confirmes visualmente que quedó en estado <b>Registrado</b> y fue enviado a la Torre de Control — no depende solo del aviso emergente (toast), que es temporal.</p>
       <p>La pestaña <b>Torre de Control → Validar Solicitudes</b> es la bandeja de revisión: agrupa todo lo pendiente (Registrado + Corregido, con etiqueta "nuevo" el mismo día del registro), lo observado y lo ya publicado, con búsqueda, filtros, botón "Ver ficha" en cada fila para revisar el componente completo antes de decidir, y las acciones ✓ Publicar / ⚠ Observar. El dashboard también avisa cuántas solicitudes están esperando validación.</p>
       <p style="color:var(--slate-soft);font-size:12px;">Nota: los registros que ya existían en el Excel antes de este cambio no tienen Estado de Validación (columna en blanco) — solo las solicitudes nuevas, creadas desde esta versión de la consola, entran al circuito Registrado → Observado/Corregido → Publicado.</p>
-      <p>Además de la ficha de confirmación, el badge "nuevo" y la alerta del dashboard, al Registrar, Modificar o Reutilizar un componente la consola envía un <b>correo real</b> a la Torre de Control: llama a un pequeño relay (Cloudflare Worker) que dispara un evento en GitHub, y un GitHub Action toma ese evento y manda el correo por SMTP. Esta página no tiene backend propio, así que ese relay es indispensable — sin él, no podría notificar por correo sin exponer credenciales en el código fuente público. Ver el documento de despliegue para configurarlo (Worker + secretos del repositorio + workflow de Actions).</p>
+      <p>El Excel oficial vive en este mismo repositorio de GitHub y la consola lo lee solo al abrirse. Cada Registrar/Modificar/Reutilizar (o Publicar/Observar/Corregir desde la Torre de Control) queda en un lote local — el botón de la barra superior muestra cuántos cambios faltan por guardar. Al presionarlo, la consola descarga el Excel actualizado a tu computadora y abre las páginas exactas de GitHub para (1) subirlo a la carpeta de datos del repositorio y, si hay componentes nuevos que requieren validación, (2) crear un Issue prellenado — ese Issue, al crearse, dispara por sí solo un GitHub Action que envía el correo real por SMTP. Todo el paso de escritura ocurre con tu propia sesión de GitHub, sin ningún servicio externo ni token en el código fuente público. Ver la guía de publicación para configurar el repositorio y el workflow de Actions.</p>
 
       <h4>11. Operaciones y Dependencias: nacen en Registrar/Modificar Componente, se corrigen desde Gobierno</h4>
       <p>Las operaciones y las dependencias de un componente ya no tienen un acceso directo en el menú <b>Catálogo</b>. Se registran donde deben nacer:</p>
