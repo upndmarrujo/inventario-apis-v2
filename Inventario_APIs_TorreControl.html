@@ -511,12 +511,12 @@ const NOTIFY_RELAY_URL = 'https://inventario-apis-notify-relay.TU-SUBDOMINIO.wor
    instrucciones de despliegue). Mientras contengan los valores de ejemplo, la app sigue
    funcionando con Importar/Exportar manual de Excel como hasta ahora.
    ================================================================================== */
-const GITHUB_OWNER = 'TU-USUARIO';
-const GITHUB_REPO = 'NOMBRE-DEL-REPO';
+const GITHUB_OWNER = 'upndmarrujo';
+const GITHUB_REPO = 'inventario-apis-v2';
 const GITHUB_BRANCH = 'main';
 const GITHUB_DATA_PATH = 'data/inventario.xlsx';
 function githubConfigured(){
-  return !!(GITHUB_OWNER && !GITHUB_OWNER.includes('TU-USUARIO') && GITHUB_REPO && !GITHUB_REPO.includes('NOMBRE-DEL-REPO'));
+  return !!(GITHUB_OWNER && !GITHUB_OWNER.includes('upndmarrujo') && GITHUB_REPO && !GITHUB_REPO.includes('inventario-apis-v2'));
 }
 function relayConfigured(){
   return !!(NOTIFY_RELAY_URL && !NOTIFY_RELAY_URL.includes('TU-SUBDOMINIO'));
