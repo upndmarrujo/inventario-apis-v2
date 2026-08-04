@@ -1,0 +1,3171 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Gobierno Centralizado de APIs · Consola de Inventario</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=Inter:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap');
+/* ============================================================
+   TOKENS
+   ============================================================ */
+:root{
+  --ink:#0F2A3D;
+  --ink-2:#16374B;
+  --slate:#3D5568;
+  --slate-soft:#6B8194;
+  --paper:#EEF3F5;
+  --paper-2:#FFFFFF;
+  --line:#CBD6DC;
+  --line-soft:#DEE6EA;
+  --gold:#B8862E;
+  --gold-dark:#93691F;
+  --gold-tint:#F3E4C4;
+  --ok:#2F7A56;
+  --ok-tint:#DEEEE4;
+  --warn:#C98A2C;
+  --warn-tint:#F5E7CE;
+  --bad:#B0392F;
+  --bad-tint:#F5DFDC;
+  --info:#2B5F8A;
+  --info-tint:#DCE8F2;
+  --mono:'IBM Plex Mono', ui-monospace, SFMono-Regular, Menlo, monospace;
+  --sans:'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  --disp:'Space Grotesk', var(--sans);
+  --radius:4px;
+  --shadow: 0 1px 2px rgba(15,42,61,.06), 0 4px 16px rgba(15,42,61,.05);
+}
+
+
+
+*{box-sizing:border-box;}
+html,body{height:100%;}
+body{
+  margin:0;
+  font-family:var(--sans);
+  background:var(--paper);
+  color:var(--ink);
+  font-size:14px;
+  line-height:1.5;
+}
+::selection{background:var(--gold-tint);}
+
+/* blueprint grid texture on the shell background */
+.app{
+  min-height:100vh;
+  display:flex;
+  background-image:
+    linear-gradient(rgba(15,42,61,.035) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(15,42,61,.035) 1px, transparent 1px);
+  background-size: 28px 28px;
+}
+
+/* ============================================================
+   SIDEBAR
+   ============================================================ */
+.sidebar{
+  width:250px;
+  flex:0 0 250px;
+  background:var(--ink);
+  color:#CFE0EA;
+  display:flex;
+  flex-direction:column;
+  position:sticky;
+  top:0;
+  height:100vh;
+}
+.brand{
+  padding:22px 20px 16px;
+  border-bottom:1px solid rgba(255,255,255,.09);
+}
+.brand .mark{
+  font-family:var(--mono);
+  font-size:11px;
+  letter-spacing:.14em;
+  color:var(--gold-tint);
+  text-transform:uppercase;
+}
+.brand h1{
+  font-family:var(--disp);
+  font-size:17px;
+  font-weight:600;
+  margin:6px 0 2px;
+  color:#fff;
+  letter-spacing:-.01em;
+}
+.brand p{
+  margin:0;
+  font-size:11.5px;
+  color:#8CA6B7;
+}
+nav.tabs{
+  flex:1;
+  overflow-y:auto;
+  padding:10px 10px 10px;
+}
+.tab-group-label{
+  font-family:var(--mono);
+  font-size:10px;
+  letter-spacing:.12em;
+  text-transform:uppercase;
+  color:#5E7C90;
+  padding:14px 10px 6px;
+}
+.tab-btn{
+  display:flex;
+  align-items:baseline;
+  gap:9px;
+  width:100%;
+  text-align:left;
+  background:transparent;
+  border:none;
+  color:#B9CBD7;
+  padding:8px 10px;
+  border-radius:4px;
+  cursor:pointer;
+  font-size:13px;
+  font-family:var(--sans);
+  margin-bottom:1px;
+}
+.tab-btn .num{
+  font-family:var(--mono);
+  font-size:10.5px;
+  color:#5E7C90;
+  min-width:16px;
+}
+.tab-btn:hover{background:rgba(255,255,255,.06); color:#fff;}
+.tab-btn.active{background:rgba(184,134,46,.16); color:#F3E4C4;}
+.tab-btn.active .num{color:var(--gold-tint);}
+.tab-btn:disabled{opacity:.35; cursor:not-allowed;}
+.tab-btn:disabled:hover{background:transparent; color:#B9CBD7;}
+
+.sidebar-foot{
+  padding:14px 16px 18px;
+  border-top:1px solid rgba(255,255,255,.09);
+}
+.sync-line{
+  margin-top:12px;
+  font-size:10.5px;
+  color:#5E7C90;
+  display:flex;
+  align-items:center;
+  gap:6px;
+}
+.dot{width:6px;height:6px;border-radius:50%;background:#5E7C90;flex:0 0 auto;}
+.dot.on{background:#4CAF7D;}
+
+/* ============================================================
+   MAIN
+   ============================================================ */
+.main{
+  flex:1;
+  min-width:0;
+  padding:26px 34px 60px;
+}
+.topbar{
+  display:flex;
+  justify-content:space-between;
+  align-items:flex-start;
+  gap:16px;
+  margin-bottom:22px;
+  flex-wrap:wrap;
+}
+.topbar h2{
+  font-family:var(--disp);
+  font-size:22px;
+  margin:0 0 4px;
+  letter-spacing:-.01em;
+}
+.topbar .sub{color:var(--slate-soft); font-size:13px; max-width:640px;}
+.file-actions{display:flex; gap:8px; align-items:center; flex-wrap:wrap;}
+
+button.btn{
+  font-family:var(--sans);
+  font-weight:600;
+  font-size:12.5px;
+  border-radius:4px;
+  border:1px solid var(--line);
+  background:var(--paper-2);
+  color:var(--ink);
+  padding:9px 14px;
+  cursor:pointer;
+  display:inline-flex;
+  align-items:center;
+  gap:7px;
+}
+button.btn:hover{border-color:var(--slate-soft);}
+button.btn.primary{background:var(--ink); color:#fff; border-color:var(--ink);}
+button.btn.primary:hover{background:var(--ink-2);}
+button.btn.gold{background:var(--gold); border-color:var(--gold); color:#fff;}
+button.btn.gold:hover{background:var(--gold-dark);}
+button.btn.ghost{background:transparent; border-color:transparent; color:var(--slate);}
+button.btn.ghost:hover{background:var(--line-soft);}
+button.btn.danger{color:var(--bad); border-color:var(--bad-tint); background:var(--bad-tint);}
+button.btn:disabled{opacity:.45; cursor:not-allowed;}
+button.btn.small{padding:5px 9px; font-size:11.5px;}
+input[type=file]{display:none;}
+
+.card{
+  background:var(--paper-2);
+  border:1px solid var(--line-soft);
+  border-radius:var(--radius);
+  box-shadow:var(--shadow);
+  padding:20px;
+  margin-bottom:18px;
+}
+.card h3{
+  font-family:var(--disp);
+  font-size:15px;
+  margin:0 0 4px;
+}
+.card .hint{color:var(--slate-soft); font-size:12.5px; margin-bottom:14px;}
+
+/* KPI grid */
+.kpis{display:grid; grid-template-columns:repeat(auto-fit,minmax(150px,1fr)); gap:12px; margin-bottom:18px;}
+.kpi{
+  background:var(--paper-2);
+  border:1px solid var(--line-soft);
+  border-left:3px solid var(--gold);
+  border-radius:var(--radius);
+  padding:14px 16px;
+  box-shadow:var(--shadow);
+}
+.kpi .n{font-family:var(--disp); font-size:26px; font-weight:600; line-height:1;}
+.kpi .l{font-size:11.5px; color:var(--slate-soft); margin-top:6px; text-transform:uppercase; letter-spacing:.04em;}
+
+.two-col{display:grid; grid-template-columns:1.3fr .9fr; gap:18px;}
+@media (max-width:980px){.two-col{grid-template-columns:1fr;}}
+
+.barlist{display:flex; flex-direction:column; gap:9px;}
+.barrow{display:grid; grid-template-columns:120px 1fr 34px; align-items:center; gap:8px; font-size:12px;}
+.barrow .lbl{color:var(--slate); white-space:nowrap; overflow:hidden; text-overflow:ellipsis;}
+.barrow .track{background:var(--paper); border-radius:3px; height:9px; overflow:hidden;}
+.barrow .fill{height:100%; background:var(--gold); border-radius:3px;}
+.barrow .val{text-align:right; font-family:var(--mono); color:var(--slate);}
+
+/* Tables */
+.table-wrap{overflow:auto; border:1px solid var(--line-soft); border-radius:var(--radius);}
+table{width:100%; border-collapse:collapse; font-size:12.5px;}
+thead th{
+  position:sticky; top:0;
+  background:var(--ink);
+  color:#DCE8EE;
+  text-align:left;
+  padding:9px 10px;
+  font-weight:600;
+  font-size:11px;
+  text-transform:uppercase;
+  letter-spacing:.03em;
+  white-space:nowrap;
+}
+tbody td{
+  padding:8px 10px;
+  border-bottom:1px solid var(--line-soft);
+  white-space:nowrap;
+  max-width:260px;
+  overflow:hidden;
+  text-overflow:ellipsis;
+}
+tbody tr:hover{background:#F5F8F9;}
+tbody tr:nth-child(even){background:#FAFCFC;}
+tbody tr:nth-child(even):hover{background:#F5F8F9;}
+td.wrap, th.wrap{white-space:normal;}
+.rowbtn{cursor:pointer; color:var(--info); font-weight:600; background:none; border:none; padding:0; font-size:12.5px; font-family:var(--sans);}
+.rowbtn:hover{text-decoration:underline;}
+.empty-state{padding:34px 18px; text-align:center; color:var(--slate-soft);}
+.empty-state .big{font-family:var(--disp); font-size:15px; color:var(--slate); margin-bottom:4px;}
+
+/* Badges (stamps) */
+.badge{
+  display:inline-flex;
+  align-items:center;
+  gap:5px;
+  padding:3px 9px;
+  border-radius:20px;
+  font-size:10.5px;
+  font-weight:700;
+  text-transform:uppercase;
+  letter-spacing:.03em;
+  font-family:var(--mono);
+  white-space:nowrap;
+}
+.badge.ok{background:var(--ok-tint); color:var(--ok);}
+.badge.warn{background:var(--warn-tint); color:var(--warn);}
+.badge.bad{background:var(--bad-tint); color:var(--bad);}
+.badge.info{background:var(--info-tint); color:var(--info);}
+.badge.neutral{background:var(--line-soft); color:var(--slate);}
+code.idtag{font-family:var(--mono); background:var(--paper); border:1px solid var(--line-soft); border-radius:3px; padding:1px 6px; font-size:11.5px;}
+
+/* Forms */
+.form-grid{display:grid; grid-template-columns:repeat(2,1fr); gap:14px 18px;}
+.form-grid.g3{grid-template-columns:repeat(3,1fr);}
+@media (max-width:760px){.form-grid, .form-grid.g3{grid-template-columns:1fr;}}
+.field{display:flex; flex-direction:column; gap:5px;}
+.field.span2{grid-column:span 2;}
+.field.span3{grid-column:1/-1;}
+.field label{font-size:11.5px; font-weight:600; color:var(--slate); display:flex; justify-content:space-between;}
+.field label .req{color:var(--bad); font-weight:700;}
+.field input, .field select, .field textarea{
+  font-family:var(--sans);
+  font-size:13px;
+  padding:8px 10px;
+  border:1px solid var(--line);
+  border-radius:4px;
+  background:var(--paper-2);
+  color:var(--ink);
+}
+.field input:focus, .field select:focus, .field textarea:focus{
+  outline:2px solid var(--gold-tint);
+  border-color:var(--gold);
+}
+.field textarea{resize:vertical; min-height:56px; font-family:var(--sans);}
+.field .fhint{font-size:11px; color:var(--slate-soft);}
+.field input[readonly]{background:var(--paper); color:var(--slate);}
+
+fieldset.section{
+  border:1px solid var(--line-soft);
+  border-radius:var(--radius);
+  padding:16px;
+  margin:0 0 16px;
+}
+fieldset.section legend{
+  font-family:var(--mono);
+  font-size:11px;
+  letter-spacing:.08em;
+  text-transform:uppercase;
+  color:var(--gold-dark);
+  padding:0 6px;
+}
+
+.subtable-row{display:grid; grid-template-columns:repeat(5,1fr) 32px; gap:8px; margin-bottom:8px; align-items:center;}
+.subtable-head{display:grid; grid-template-columns:repeat(5,1fr) 32px; gap:8px; margin-bottom:6px;}
+.subtable-head span{font-size:10.5px; text-transform:uppercase; color:var(--slate-soft); font-weight:600;}
+.iconbtn{border:1px solid var(--line); background:var(--paper-2); border-radius:4px; width:30px; height:30px; cursor:pointer; color:var(--bad); font-size:14px; line-height:1;}
+.iconbtn:hover{background:var(--bad-tint);}
+
+.formbar{display:flex; justify-content:flex-end; gap:10px; margin-top:6px;}
+
+.alert{
+  border-radius:4px;
+  padding:12px 14px;
+  font-size:12.5px;
+  margin-bottom:14px;
+  display:flex;
+  gap:10px;
+  align-items:flex-start;
+}
+.alert.warn{background:var(--warn-tint); color:#7A5416; border:1px solid #E4C481;}
+.alert.info{background:var(--info-tint); color:#1E4162; border:1px solid #A9C6DD;}
+.alert.ok{background:var(--ok-tint); color:#1E5A3C; border:1px solid #9FCBB2;}
+.alert.bad{background:var(--bad-tint); color:#7C2620; border:1px solid #E0A9A3;}
+.alert b{font-weight:700;}
+.alert ul{margin:6px 0 0; padding-left:18px;}
+
+.search-row{display:flex; gap:8px; flex-wrap:wrap; margin-bottom:14px; align-items:center;}
+.search-row input[type=search]{
+  flex:1; min-width:200px;
+  padding:9px 12px;
+  border:1px solid var(--line);
+  border-radius:4px;
+  font-size:13px;
+  background:var(--paper-2);
+}
+.search-row select{padding:9px 10px; border:1px solid var(--line); border-radius:4px; font-size:12.5px; background:var(--paper-2);}
+.chips{display:flex; gap:6px; flex-wrap:wrap;}
+.chip{
+  border:1px solid var(--line);
+  background:var(--paper-2);
+  border-radius:20px;
+  padding:6px 13px;
+  font-size:12px;
+  cursor:pointer;
+  color:var(--slate);
+  font-weight:600;
+}
+.chip:hover{border-color:var(--gold);}
+.chip.active{background:var(--ink); color:#fff; border-color:var(--ink);}
+
+.stepline{
+  display:flex; align-items:center; gap:6px; margin-bottom:16px; font-family:var(--mono); font-size:11px; color:var(--slate-soft);
+}
+.stepline b{color:var(--gold-dark);}
+
+.section-title{
+  font-family:var(--disp); font-size:13px; font-weight:600; margin:20px 0 10px; color:var(--ink);
+  display:flex; align-items:center; gap:8px;
+}
+.section-title::after{content:''; flex:1; height:1px; background:var(--line-soft);}
+
+.tag-list{display:flex; gap:6px; flex-wrap:wrap; margin-top:4px;}
+.tag-list .tag{background:var(--paper); border:1px solid var(--line-soft); border-radius:3px; padding:2px 7px; font-size:11px; font-family:var(--mono); color:var(--slate);}
+
+.trace{border-left:2px solid var(--line); margin-left:6px; padding-left:18px;}
+.trace-item{position:relative; padding:2px 0 18px;}
+.trace-item::before{content:''; position:absolute; left:-23px; top:4px; width:9px; height:9px; border-radius:50%; background:var(--gold); border:2px solid var(--paper-2);}
+.trace-item .th{font-weight:700; font-size:12.5px; display:flex; gap:8px; align-items:center;}
+.trace-item .tm{font-size:11.5px; color:var(--slate-soft); margin-top:2px;}
+.trace-item .tc{font-size:12px; margin-top:4px; color:var(--ink);}
+
+.modal-backdrop{
+  position:fixed; inset:0; background:rgba(15,42,61,.55); display:none;
+  align-items:center; justify-content:center; z-index:50; padding:20px;
+}
+.modal-backdrop.show{display:flex;}
+.modal{background:var(--paper-2); border-radius:6px; max-width:640px; width:100%; max-height:86vh; overflow:auto; padding:22px 24px; box-shadow:0 20px 60px rgba(0,0,0,.3);}
+.modal h3{font-family:var(--disp); margin-top:0;}
+
+.toast-wrap{position:fixed; bottom:20px; right:20px; z-index:80; display:flex; flex-direction:column; gap:8px;}
+.toast{
+  background:var(--ink); color:#fff; padding:11px 16px; border-radius:5px; font-size:12.5px;
+  box-shadow:0 8px 24px rgba(0,0,0,.25); display:flex; gap:8px; align-items:center;
+  border-left:3px solid var(--gold);
+  animation:slidein .18s ease-out;
+}
+.toast.bad{border-left-color:var(--bad);}
+.toast.ok{border-left-color:var(--ok);}
+@keyframes slidein{from{opacity:0; transform:translateY(6px);} to{opacity:1; transform:translateY(0);}}
+
+.guide{max-width:760px;}
+.guide h4{font-family:var(--disp); font-size:14px; margin:20px 0 6px;}
+.guide p, .guide li{color:var(--slate); font-size:13px;}
+.guide .example{background:var(--paper); border:1px dashed var(--line); border-radius:4px; padding:12px 14px; font-size:12.5px; color:var(--ink);}
+
+.role-note{font-size:11.5px; color:var(--slate-soft); display:flex; align-items:center; gap:6px; margin-bottom:14px;}
+
+.pill-role{font-family:var(--mono); font-size:10px; background:var(--paper); border:1px solid var(--line-soft); padding:2px 8px; border-radius:20px; color:var(--slate);}
+
+@media print{.sidebar,.file-actions,.formbar{display:none;}}
+</style>
+</head>
+<body>
+<div class="app" id="app"></div>
+<div class="modal-backdrop" id="modalBackdrop"><div class="modal" id="modalBody"></div></div>
+<div class="toast-wrap" id="toastWrap"></div>
+
+<script>
+/* ==================================================================================
+   MODELO DE DATOS — refleja 1:1 las hojas del Excel maestro
+   ================================================================================== */
+const SHEETS = {
+  apis: 'Catálogo_APIs',
+  ops: 'Catálogo_Operaciones_API',
+  hist: 'Histórico_Proyectos_API',
+  deps: 'Dependencias_API',
+  listas: 'Listas_Validacion'
+};
+
+const HEADERS = {
+  apis: ["ID API","País","Nombre API","Descripción","Tipo de Componente","Tipo API","Business Area","Business Domain","Service Domain","Complejidad","Estilo Diseño","Canal Integración (Despliegue)","URL OpenAPI (SWAGGER)","Versión Actual","Fecha de Registro","Estado_General_API","Service Owner","Estado de Gobierno","Existe en Catálogo BIAN","Posible Duplicado en Backlog","Caso de Uso","Repositorios Involucrados","Excepción / Riesgo Identificado"],
+  ops: ["ID Operación","ID API","Método HTTP","Path - Endpoint","Descripción Operación","Versión Desde","Estado Operación"],
+  hist: ["ID Historial","ID API","Proyecto","Tribu","Acción","Operaciones (Creadas/Modificadas)","PO/Líder Usuario","TTL","Jefe Proyecto","Líder Técnico","Arquitecto Solución","Consumidores","Fecha Registro","Fecha Fin Diseño","Fecha Pase Desarrollo","Fecha Pase QA","Fecha Pase Producción","Quarter Publicación","Estado_Actual","Versión_Antes","Versión_Después","Breaking_Change","Complejidad","Justificación_Complejidad","Última_Modificación_Por","Fecha_Última_Modificación","Motivo_Modificación","Observaciones_Cruce","Comentarios","Etapa Planificación","Fecha Fin Planificación","Etapa Diseño","Etapa Desarrollo","Etapa Calidad","Etapa Producción","Estado de Validación","Observación Torre de Control","Fecha Validación"],
+  deps: ["ID_API_Consumidor","Nombre_API_Consumidor","Tipo_Artefacto_Consumido","ID_API_Consumida","Nombre_API_Consumida","Tipo_Dependencia","Criticidad","Comentarios"],
+  listas: ["Pais","TipoAPI_BIAN","EstadoGeneralAPI","CriticidadBIAN","ProtocoloEstilo","CanalIntegracion","MetodoHTTP","EstadoOperacion","EquipoPropietario","Accion","EstadoActual","Complejidad","BreakingChange","TipoDependencia","Criticidad","SiNo","EstadoGobierno","EtapaEstado","EstadoValidacion","TipoArtefactoConsumido","TipoComponente"]
+};
+
+const DEFAULT_LISTS = {
+  Pais:["Perú","Colombia","Otro"],
+  TipoAPI_BIAN:["EXP","PROC","SD","SYS"],
+  EstadoGeneralAPI:["Activa","En Desarrollo","En Mantenimiento","Deprecada"],
+  CriticidadBIAN:["Alta","Media","Baja"],
+  ProtocoloEstilo:["REST","Evento","GraphQL","SOAP","Otro"],
+  CanalIntegracion:["APIM","AKS","Azure Event Hub","OCP","CA"],
+  MetodoHTTP:["GET","POST","PUT","PATCH","DELETE"],
+  EstadoOperacion:["Activa","Deprecada"],
+  EquipoPropietario:["Interconexión","Core / Legado","Otro"],
+  Accion:["Creación","Modificación","Reutilización"],
+  EstadoActual:["Identificado","Backlog","Diseño","Desarrollo","Calidad","Producción","Deprecada"],
+  Complejidad:["Baja","Media","Alta"],
+  BreakingChange:["Sí","No"],
+  TipoDependencia:["Síncrona (REST)","Asíncrona (Evento/Kafka)"],
+  Criticidad:["Crítica","Alta","Media","Baja"],
+  SiNo:["Sí","No"],
+  EstadoGobierno:["Aprobado - creación nueva","Aprobado - modificación sobre API existente","Aprobado - reutilización","Pendiente de definición","Revisar - posible duplicado en backlog","Revisar - ya existe en catálogo BIAN, evaluar reutilización"],
+  EtapaEstado:["No iniciado","En proceso","Finalizado","Desestimada"],
+  EstadoValidacion:["Registrado","Observado","Corregido","Publicado"],
+  TipoArtefactoConsumido:["Componente del Catálogo","Microservicio","Evento / Topic","Batch / Job","Sistema Legado / Otro"],
+  TipoComponente:["API","Microservicio","Tópico / Evento","Batch / Job","Sistema Legado / Otro"]
+};
+
+/* ==================================================================================
+   NOTIFICACIÓN A LA TORRE DE CONTROL (vía relay serverless -> GitHub Actions -> correo)
+   Esta página es estática (GitHub Pages) y no puede llamar a la API de GitHub de forma
+   segura por sí sola — necesitaría un token con permisos de escritura visible en el código
+   fuente. Por eso se llama a un relay (Cloudflare Worker) que NO expone ningún secreto al
+   navegador; el relay es quien guarda el token y dispara el evento repository_dispatch que
+   activa el workflow de GitHub Actions encargado de enviar el correo.
+   Reemplaza NOTIFY_RELAY_URL por la URL real de tu Worker una vez desplegado (ver
+   instrucciones de despliegue). Mientras contenga "TU-SUBDOMINIO" la notificación se omite
+   silenciosamente y el resto de la app sigue funcionando con normalidad.
+   ================================================================================== */
+const NOTIFY_RELAY_URL = 'https://inventario-apis-notify-relay.TU-SUBDOMINIO.workers.dev';
+
+/* ==================================================================================
+   EXCEL COMO FUENTE UNICA DE VERDAD EN GITHUB
+   El Excel oficial vive en el mismo repositorio que este HTML (repo publico), en la ruta
+   GITHUB_DATA_PATH. Al abrir la app se lee directo desde la API de contenidos de GitHub
+   (lectura anonima, sin token, porque el repo es publico). Para GUARDAR si hace falta el
+   mismo relay (Worker) que ya usamos para las notificaciones, porque escribir requiere un
+   token con permiso de escritura que no puede vivir en una pagina publica.
+   Reemplaza GITHUB_OWNER/GITHUB_REPO por los datos reales de tu repositorio (ver
+   instrucciones de despliegue). Mientras contengan los valores de ejemplo, la app sigue
+   funcionando con Importar/Exportar manual de Excel como hasta ahora.
+   ================================================================================== */
+const GITHUB_OWNER = 'TU-USUARIO';
+const GITHUB_REPO = 'NOMBRE-DEL-REPO';
+const GITHUB_BRANCH = 'main';
+const GITHUB_DATA_PATH = 'data/inventario.xlsx';
+function githubConfigured(){
+  return !!(GITHUB_OWNER && !GITHUB_OWNER.includes('TU-USUARIO') && GITHUB_REPO && !GITHUB_REPO.includes('NOMBRE-DEL-REPO'));
+}
+function relayConfigured(){
+  return !!(NOTIFY_RELAY_URL && !NOTIFY_RELAY_URL.includes('TU-SUBDOMINIO'));
+}
+function base64ToArrayBuffer(b64){
+  const binary = atob(b64.replace(/\n/g,''));
+  const bytes = new Uint8Array(binary.length);
+  for(let i=0;i<binary.length;i++) bytes[i] = binary.charCodeAt(i);
+  return bytes.buffer;
+}
+function arrayBufferToBase64(buf){
+  const bytes = new Uint8Array(buf);
+  let binary = '';
+  const chunk = 0x8000;
+  for(let i=0;i<bytes.length;i+=chunk){
+    binary += String.fromCharCode.apply(null, bytes.subarray(i, i+chunk));
+  }
+  return btoa(binary);
+}
+async function loadFromGitHub(){
+  if(!githubConfigured()) return false;
+  try{
+    const url = `https://api.github.com/repos/${GITHUB_OWNER}/${GITHUB_REPO}/contents/${GITHUB_DATA_PATH}?ref=${GITHUB_BRANCH}&_=${Date.now()}`;
+    const resp = await fetch(url, {headers:{Accept:'application/vnd.github+json'}});
+    if(!resp.ok){ console.warn('[loadFromGitHub] No se pudo leer el Excel del repositorio', resp.status); return false; }
+    const json = await resp.json();
+    if(!json.content){ console.warn('[loadFromGitHub] Respuesta sin contenido', json); return false; }
+    loadWorkbookFromArrayBuffer(base64ToArrayBuffer(json.content), GITHUB_DATA_PATH.split('/').pop());
+    GITHUB_FILE_SHA = json.sha;
+    META.lastGitHubLoad = new Date().toISOString();
+    return true;
+  }catch(e){
+    console.warn('[loadFromGitHub] Error de red al leer el Excel del repositorio', e);
+    return false;
+  }
+}
+async function actualizarDesdeGitHub(){
+  if(PENDING_BATCH.length){
+    const ok = confirm(`Tienes ${PENDING_BATCH.length} componente(s) sin enviar a la Torre de Control. Si actualizas ahora desde GitHub vas a perder esos cambios locales. ¿Continuar de todas formas?`);
+    if(!ok) return;
+  }
+  const ok = await loadFromGitHub();
+  if(ok){ PENDING_BATCH=[]; scheduleSave(); toast('Excel actualizado con la version mas reciente de GitHub.','ok'); renderApp(); }
+  else toast('No se pudo actualizar desde GitHub. Revisa tu conexion.','bad');
+}
+async function syncToGitHub(batchForEmail){
+  if(!githubConfigured()){ toast('La conexion con GitHub no esta configurada todavia. Ver instrucciones de despliegue.','bad'); return false; }
+  if(!relayConfigured()){ toast('El relay de sincronizacion no esta configurado todavia. Ver instrucciones de despliegue.','bad'); return false; }
+  GITHUB_SYNCING = true; renderApp();
+  try{
+    const wb = buildWorkbook();
+    const buf = XLSX.write(wb, {bookType:'xlsx', type:'array'});
+    const contentBase64 = arrayBufferToBase64(buf);
+    const resumen = (batchForEmail||[]).map(it=>`- ${it.tipoComponente||''} ${it.id} · ${it.nombre} (${it.accion}) — proyecto ${it.proyecto||'—'}, arquitecto ${it.arquitecto||'—'}`).join('\n') || '(sin detalle de items)';
+    const resp = await fetch(NOTIFY_RELAY_URL, {
+      method: 'POST',
+      headers: {'Content-Type':'application/json'},
+      body: JSON.stringify({
+        type: 'sync',
+        path: GITHUB_DATA_PATH,
+        branch: GITHUB_BRANCH,
+        contentBase64,
+        expectedSha: GITHUB_FILE_SHA,
+        notify: !!(batchForEmail && batchForEmail.length),
+        batch: batchForEmail||[],
+        resumen
+      })
+    });
+    const data = await resp.json().catch(()=>({}));
+    if(resp.status===409){
+      toast('Alguien mas guardo el Excel en GitHub antes que tu. Presiona "Actualizar desde GitHub" para traer la version mas reciente y vuelve a intentar.','bad');
+      return false;
+    }
+    if(!resp.ok){
+      toast('No se pudo guardar en GitHub: '+(data.error||resp.status),'bad');
+      return false;
+    }
+    GITHUB_FILE_SHA = data.newSha || GITHUB_FILE_SHA;
+    META.lastGitHubSave = new Date().toISOString();
+    return true;
+  }catch(e){
+    console.error(e);
+    toast('No se pudo contactar al relay para guardar en GitHub.','bad');
+    return false;
+  }finally{
+    GITHUB_SYNCING = false; renderApp();
+  }
+}
+async function enviarATorreControl(){
+  if(!PENDING_BATCH.length){ toast('No hay componentes pendientes de enviar.','info'); return; }
+  const batch = PENDING_BATCH.slice();
+  const ok = await syncToGitHub(batch);
+  if(ok){
+    PENDING_BATCH = [];
+    scheduleSave();
+    toast(`${batch.length} componente(s) guardado(s) en el Excel oficial de GitHub y notificado(s) por correo a la Torre de Control.`,'ok');
+    renderApp();
+  }
+}
+function syncGovernanceAction(){
+  syncToGitHub([]).then(ok=>{ if(ok) toast('Cambio guardado en el Excel oficial de GitHub.','ok'); });
+}
+
+/* ==================================================================================
+   ESTADO GLOBAL
+   ================================================================================== */
+let DB = { apis:[], ops:[], hist:[], deps:[], listas: JSON.parse(JSON.stringify(DEFAULT_LISTS)) };
+let META = { fileName: null, lastImport: null, lastSaved: null };
+let GITHUB_FILE_SHA = null;
+let PENDING_BATCH = [];
+let GITHUB_SYNCING = false;
+// (rol único: Arquitecto de Solución con acceso completo — sin restricciones por rol)
+let TAB = 'dashboard';
+let STORAGE_OK = true;
+
+const $ = (sel, el=document) => el.querySelector(sel);
+const $$ = (sel, el=document) => Array.from(el.querySelectorAll(sel));
+const esc = s => (s===undefined||s===null) ? '' : String(s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const uid = () => Math.random().toString(36).slice(2,9);
+
+/* ==================================================================================
+   UTILIDADES DE DOMINIO
+   ================================================================================== */
+function getList(name){
+  const l = DB.listas[name];
+  return (l && l.length) ? l : (DEFAULT_LISTS[name]||[]);
+}
+function fmtDate(v){
+  if(!v) return '';
+  if(v instanceof Date) return v.toISOString().slice(0,10);
+  if(typeof v === 'string'){
+    if(/^\d{4}-\d{2}-\d{2}/.test(v)) return v.slice(0,10);
+    const d = new Date(v);
+    if(!isNaN(d)) return d.toISOString().slice(0,10);
+    return v; // e.g. 'TBD'
+  }
+  return String(v);
+}
+function computeQuarter(fechaProd){
+  const f = fmtDate(fechaProd);
+  if(!f || !/^\d{4}-\d{2}-\d{2}/.test(f)) return '';
+  const d = new Date(f);
+  const q = Math.ceil((d.getUTCMonth()+1)/3);
+  return 'Q'+q+'-'+d.getUTCFullYear();
+}
+function findApi(id){ return DB.apis.find(a => a['ID API'] === id); }
+function opsForApi(id){ return DB.ops.filter(o => o['ID API'] === id); }
+function histForApi(id){ return DB.hist.filter(h => h['ID API'] === id).sort((a,b)=> (fmtDate(a['Fecha Registro'])||'').localeCompare(fmtDate(b['Fecha Registro'])||'')); }
+function depsForApiAsConsumer(id){ return DB.deps.filter(d => d['ID_API_Consumidor']===id); }
+function depsForApiAsProvider(id){ return DB.deps.filter(d => d['ID_API_Consumida']===id); }
+function lastArchitectFor(id){
+  const h = histForApi(id);
+  for(let i=h.length-1;i>=0;i--){ if(h[i]['Arquitecto Solución']) return h[i]['Arquitecto Solución']; }
+  return '';
+}
+function creatorRowFor(id){ return DB.hist.find(h => h['ID API']===id && h['Acción']==='Creación'); }
+
+function nextSeqId(list, field, fallbackPrefix, pad){
+  let best = null;
+  for(const row of list){
+    const v = row[field];
+    if(!v) continue;
+    const m = String(v).match(/^([A-Za-z\-]*?)(\d+)$/);
+    if(m) best = m;
+  }
+  if(!best){
+    return fallbackPrefix + String(1).padStart(pad,'0');
+  }
+  const prefix = best[1];
+  const digits = best[2];
+  const nextNum = String(parseInt(digits,10)+1).padStart(digits.length,'0');
+  return prefix + nextNum;
+}
+function nextApiId(){ return nextSeqId(DB.apis, 'ID API', 'D', 4); }
+function nextOpId(){ return nextSeqId(DB.ops, 'ID Operación', 'OP-', 4); }
+function nextHistId(){ return nextSeqId(DB.hist, 'ID Historial', 'HIST-', 4); }
+
+/* --- Registrar Componente: el catálogo ya no es solo APIs. Cada tipo tiene su propio
+   prefijo de ID para que sea reconocible al usarse como dependencia de otro componente. --- */
+const COMPONENT_PREFIX = {'API':'D', 'Microservicio':'MS', 'Tópico / Evento':'EVT', 'Batch / Job':'BATCH', 'Sistema Legado / Otro':'CMP'};
+function tipoComponenteOf(a){ return (a && a['Tipo de Componente']) || 'API'; }
+function nextComponentId(tipo){
+  const prefix = COMPONENT_PREFIX[tipo] || 'CMP';
+  let maxNum = 0;
+  DB.apis.forEach(row=>{
+    const v = row['ID API'];
+    if(!v) return;
+    const m = String(v).match(new RegExp('^'+prefix+'(\\d+)$'));
+    if(m){ const n = parseInt(m[1],10); if(n>maxNum) maxNum = n; }
+  });
+  return prefix + String(maxNum+1).padStart(4,'0');
+}
+function onTipoComponenteChange(tipo, idFieldId, bianWrapId){
+  const idField = document.getElementById(idFieldId);
+  if(idField) idField.value = nextComponentId(tipo);
+  const wrap = document.getElementById(bianWrapId);
+  if(wrap) wrap.style.display = (tipo==='API') ? '' : 'none';
+}
+function badgeForTipoComponente(v){
+  const tipo = v || 'API';
+  const map = {'API':'info','Microservicio':'ok','Tópico / Evento':'warn','Batch / Job':'neutral','Sistema Legado / Otro':'neutral'};
+  return `<span class="badge ${map[tipo]||'neutral'}">${esc(tipo)}</span>`;
+}
+
+function badgeForEstadoApi(v){
+  const map = {'Activa':'ok','En Desarrollo':'info','En Mantenimiento':'warn','Deprecada':'bad'};
+  return `<span class="badge ${map[v]||'neutral'}">${esc(v||'—')}</span>`;
+}
+function badgeForEstadoActual(v){
+  const map = {'Producción':'ok','Calidad':'info','Desarrollo':'info','Diseño':'warn','Backlog':'neutral','Identificado':'neutral','Deprecada':'bad'};
+  return `<span class="badge ${map[v]||'neutral'}">${esc(v||'—')}</span>`;
+}
+function badgeForAccion(v){
+  const map = {'Creación':'ok','Modificación':'warn','Reutilización':'info'};
+  return `<span class="badge ${map[v]||'neutral'}">${esc(v||'—')}</span>`;
+}
+function badgeForSiNo(v){
+  if(!v) return `<span class="badge neutral">—</span>`;
+  return `<span class="badge ${v==='Sí'?'warn':'ok'}">${esc(v)}</span>`;
+}
+function badgeForEstadoGobierno(v){
+  if(!v) return `<span class="badge neutral">—</span>`;
+  const s = String(v).toLowerCase();
+  let kind = 'neutral';
+  if(s.startsWith('aprobado')) kind = 'ok';
+  else if(s.startsWith('revisar')) kind = 'bad';
+  else if(s.startsWith('pendiente')) kind = 'warn';
+  return `<span class="badge ${kind}">${esc(v)}</span>`;
+}
+function badgeForEtapa(v){
+  const map = {'Finalizado':'ok','En proceso':'info','No iniciado':'neutral','Desestimada':'bad'};
+  return `<span class="badge ${map[v]||'neutral'}">${esc(v||'—')}</span>`;
+}
+function badgeForEstadoValidacion(v){
+  const map = {'Registrado':'info','Observado':'bad','Corregido':'warn','Publicado':'ok'};
+  return `<span class="badge ${map[v]||'neutral'}">${esc(v||'Sin enviar')}</span>`;
+}
+function pendientesValidacion(){
+  return DB.hist.filter(h => h['Estado de Validación']==='Registrado' || h['Estado de Validación']==='Corregido');
+}
+function latestValidacionEstadoForApi(id){
+  const h = histForApi(id);
+  if(!h.length) return '';
+  return h[h.length-1]['Estado de Validación']||'';
+}
+function etapasResumen(h){
+  const etapas = [
+    {k:'Etapa Planificación', l:'PLAN'},
+    {k:'Etapa Diseño', l:'DIS'},
+    {k:'Etapa Desarrollo', l:'DEV'},
+    {k:'Etapa Calidad', l:'QA'},
+    {k:'Etapa Producción', l:'PROD'}
+  ];
+  return `<div style="display:flex;gap:3px;flex-wrap:wrap;">${etapas.map(e=>{
+    const v = h[e.k];
+    const map = {'Finalizado':'ok','En proceso':'info','No iniciado':'neutral','Desestimada':'bad'};
+    const kind = map[v]||'neutral';
+    return `<span class="badge ${kind}" title="${esc(e.k)}: ${esc(v||'Sin dato')}" style="padding:2px 6px;">${e.l}</span>`;
+  }).join('')}</div>`;
+}
+function uniqueVals(arr, field){
+  return Array.from(new Set(arr.map(r=>String(r[field]||'').trim()).filter(Boolean))).sort();
+}
+
+/* ==================================================================================
+   PERSISTENCIA
+   1) window.storage: borrador de equipo (compartido), para no perder cambios entre sesiones.
+   2) Archivo local conectado (File System Access API, Chrome/Edge): si el usuario conecta
+      el Excel desde su carpeta sincronizada de OneDrive/SharePoint, cada cambio se escribe
+      directamente en ESE archivo — sin exportar/re-subir manualmente.
+   3) Import/Export manual: siempre disponible como respaldo o para Firefox/Safari.
+   ================================================================================== */
+let saveTimer = null;
+let fileHandle = null;
+let FILE_SAVE_OK = null; // null = no conectado, true/false = último intento
+const FS_ACCESS_SUPPORTED = 'showOpenFilePicker' in window;
+
+function scheduleSave(){
+  clearTimeout(saveTimer);
+  saveTimer = setTimeout(persistAll, 700);
+}
+async function persistAll(){
+  try{
+    await window.storage.set('inventario-apis-db', JSON.stringify({DB, META, PENDING_BATCH, GITHUB_FILE_SHA}), true);
+    STORAGE_OK = true;
+    META.lastSaved = new Date().toISOString();
+  }catch(e){
+    STORAGE_OK = false;
+    console.error('No se pudo guardar el borrador', e);
+  }
+  if(fileHandle) await writeToFileHandle();
+  renderSidebarSync();
+}
+async function loadPersisted(){
+  try{
+    const res = await window.storage.get('inventario-apis-db', true);
+    if(res && res.value){
+      const parsed = JSON.parse(res.value);
+      if(parsed.DB){
+        DB = Object.assign({apis:[],ops:[],hist:[],deps:[],listas:JSON.parse(JSON.stringify(DEFAULT_LISTS))}, parsed.DB);
+        META = Object.assign(META, parsed.META||{});
+        PENDING_BATCH = Array.isArray(parsed.PENDING_BATCH) ? parsed.PENDING_BATCH : [];
+        GITHUB_FILE_SHA = parsed.GITHUB_FILE_SHA || null;
+        return true;
+      }
+    }
+  }catch(e){ /* no hay borrador aún */ }
+  return false;
+}
+
+function sheetToObjects(wb, sheetName, headers){
+  const ws = wb.Sheets[sheetName];
+  if(!ws) return [];
+  const rows = XLSX.utils.sheet_to_json(ws, {defval:'', raw:false});
+  return rows
+    .filter(r => headers.some(h => String(r[h]||'').trim() !== ''))
+    .map(r => { const o={}; headers.forEach(h=>o[h]=r[h]!==undefined?r[h]:''); return o; });
+}
+
+/* --- Carga de un workbook (compartida por: input de archivo, y File System Access) --- */
+function loadWorkbookFromArrayBuffer(arrayBuf, fileName){
+  const wb = XLSX.read(new Uint8Array(arrayBuf), {type:'array', cellDates:true});
+  const newDB = { apis:[], ops:[], hist:[], deps:[], listas: JSON.parse(JSON.stringify(DEFAULT_LISTS)) };
+  newDB.apis = sheetToObjects(wb, SHEETS.apis, HEADERS.apis);
+  newDB.ops = sheetToObjects(wb, SHEETS.ops, HEADERS.ops);
+  newDB.hist = sheetToObjects(wb, SHEETS.hist, HEADERS.hist);
+  newDB.deps = sheetToObjects(wb, SHEETS.deps, HEADERS.deps);
+  newDB.apis.forEach(r=>{ r['Fecha de Registro']=fmtDate(r['Fecha de Registro']); });
+  ['Fecha Registro','Fecha Fin Diseño','Fecha Pase Desarrollo','Fecha Pase QA','Fecha Pase Producción','Fecha_Última_Modificación'].forEach(f=>{
+    newDB.hist.forEach(r=>{ if(r[f] && r[f]!=='TBD') r[f]=fmtDate(r[f]); });
+  });
+  if(wb.Sheets[SHEETS.listas]){
+    const lws = wb.Sheets[SHEETS.listas];
+    const raw = XLSX.utils.sheet_to_json(lws, {header:1, defval:''});
+    const head = raw[0]||[];
+    HEADERS.listas.forEach((col)=>{
+      const idx = head.indexOf(col);
+      if(idx>=0){
+        const vals = raw.slice(1).map(row=>String(row[idx]||'').trim()).filter(Boolean);
+        if(vals.length) newDB.listas[col] = Array.from(new Set(vals));
+      }
+    });
+  }
+  DB = newDB;
+  META.fileName = fileName;
+  META.lastImport = new Date().toISOString();
+  return newDB;
+}
+
+function importExcel(file){
+  if(!file) return;
+  const reader = new FileReader();
+  reader.onload = (e) => {
+    try{
+      loadWorkbookFromArrayBuffer(e.target.result, file.name);
+      toast(`Archivo importado: ${DB.apis.length} APIs, ${DB.ops.length} operaciones, ${DB.hist.length} registros de histórico, ${DB.deps.length} dependencias.`,'ok');
+      scheduleSave();
+      TAB='dashboard';
+      renderApp();
+    }catch(err){
+      console.error(err);
+      toast('No se pudo leer el archivo. Verifica que sea el Excel de inventario (mismas hojas/columnas).','bad');
+    }
+  };
+  reader.readAsArrayBuffer(file);
+}
+
+/* --- Construcción del workbook (compartida por: descarga manual, y guardado directo) --- */
+function buildWorkbook(){
+  const wb = XLSX.utils.book_new();
+  const addSheet = (name, headers, rows) => {
+    const aoa = [headers, ...rows.map(r => headers.map(h => r[h]!==undefined? r[h] : ''))];
+    const ws = XLSX.utils.aoa_to_sheet(aoa);
+    ws['!cols'] = headers.map(h => ({wch: Math.min(38, Math.max(12, h.length+2))}));
+    XLSX.utils.book_append_sheet(wb, ws, name);
+  };
+  addSheet(SHEETS.apis, HEADERS.apis, DB.apis);
+  addSheet(SHEETS.ops, HEADERS.ops, DB.ops);
+  const histRows = DB.hist.map(r=>({...r}));
+  addSheet(SHEETS.hist, HEADERS.hist, histRows);
+  const histWs = wb.Sheets[SHEETS.hist];
+  const qCol = HEADERS.hist.indexOf('Quarter Publicación');
+  const pCol = HEADERS.hist.indexOf('Fecha Pase Producción');
+  histRows.forEach((r,i)=>{
+    const rowNum = i+2;
+    const pAddr = XLSX.utils.encode_cell({r:rowNum-1,c:pCol});
+    const qAddr = XLSX.utils.encode_cell({r:rowNum-1,c:qCol});
+    histWs[qAddr] = {t:'str', f:`IF(${pAddr}="","","Q"&ROUNDUP(MONTH(${pAddr})/3,0)&"-"&YEAR(${pAddr}))`, v:r['Quarter Publicación']||''};
+  });
+  addSheet(SHEETS.deps, HEADERS.deps, DB.deps);
+  const listaAoa = [HEADERS.listas];
+  const maxLen = Math.max(...HEADERS.listas.map(h=>getList(h).length));
+  for(let i=0;i<maxLen;i++){
+    listaAoa.push(HEADERS.listas.map(h => getList(h)[i] || ''));
+  }
+  const lws = XLSX.utils.aoa_to_sheet(listaAoa);
+  XLSX.utils.book_append_sheet(wb, lws, SHEETS.listas);
+  return wb;
+}
+
+function exportExcel(){
+  const wb = buildWorkbook();
+  const fname = META.fileName || `Inventario_Centralizado_APIs_${new Date().toISOString().slice(0,10)}.xlsx`;
+  XLSX.writeFile(wb, fname);
+  toast('Excel exportado. Súbelo al repositorio maestro para reemplazar la versión anterior.','ok');
+}
+
+/* --- Edición directa sobre archivo local conectado (Chrome/Edge) --- */
+async function connectLocalFile(){
+  if(!FS_ACCESS_SUPPORTED){
+    toast('Tu navegador no soporta edición directa de archivos. Usa Chrome o Edge, o sigue usando Importar/Exportar.','bad');
+    return;
+  }
+  try{
+    const [handle] = await window.showOpenFilePicker({
+      types:[{description:'Excel', accept:{'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet':['.xlsx']}}],
+      excludeAcceptAllOption:false, multiple:false
+    });
+    const perm = await handle.requestPermission({mode:'readwrite'});
+    if(perm !== 'granted'){ toast('No se concedió permiso de escritura sobre el archivo.','bad'); return; }
+    const file = await handle.getFile();
+    const buf = await file.arrayBuffer();
+    loadWorkbookFromArrayBuffer(buf, file.name);
+    fileHandle = handle;
+    FILE_SAVE_OK = true;
+    toast(`Conectado a "${file.name}". Cada cambio se guardará automáticamente en este archivo.`,'ok');
+    TAB='dashboard';
+    renderApp();
+  }catch(e){
+    if(e && e.name!=='AbortError'){ console.error(e); toast('No se pudo abrir el archivo local.','bad'); }
+  }
+}
+function disconnectLocalFile(){
+  fileHandle = null;
+  FILE_SAVE_OK = null;
+  toast('Archivo local desconectado. Vuelve a Importar/Exportar manualmente si lo necesitas.','info');
+  renderApp();
+}
+async function writeToFileHandle(){
+  if(!fileHandle) return;
+  try{
+    const wb = buildWorkbook();
+    const buf = XLSX.write(wb, {bookType:'xlsx', type:'array'});
+    const writable = await fileHandle.createWritable();
+    await writable.write(buf);
+    await writable.close();
+    FILE_SAVE_OK = true;
+    META.lastFileSave = new Date().toISOString();
+  }catch(e){
+    FILE_SAVE_OK = false;
+    console.error('No se pudo guardar en el archivo local', e);
+    toast('No se pudo guardar en el archivo local — verifica permisos o que el archivo no esté abierto en Excel.','bad');
+  }
+}
+
+function toast(msg, kind){
+  const wrap = $('#toastWrap');
+  const el = document.createElement('div');
+  el.className = 'toast'+(kind?(' '+kind):'');
+  el.textContent = msg;
+  wrap.appendChild(el);
+  setTimeout(()=>{ el.style.opacity='0'; el.style.transition='opacity .3s'; setTimeout(()=>el.remove(),300); }, 4200);
+}
+
+
+/* ==================================================================================
+   NAVEGACIÓN — refleja el "MENÚ PRINCIPAL" del prompt maestro (1-18)
+   ================================================================================== */
+const MENU = [
+  {group:'Inicio', items:[
+    {n:'●', tab:'dashboard', label:'Resumen'},
+  ]},
+  {group:'Catálogo', items:[
+    {n:1, tab:'buscar', label:'Buscar API'},
+    {n:2, tab:'crear', label:'Registrar Componente'},
+  ]},
+  {group:'Seguimiento', items:[
+    {n:3, tab:'historial', label:'Consultar Historial'},
+    {n:4, tab:'estado', label:'Actualizar Estado Proyecto'},
+    {n:5, tab:'estado', label:'Actualizar Fechas Proyecto'},
+    {n:'R', tab:'cruce', label:'Cruce APIs × Proyectos'},
+  ]},
+  {group:'Torre de Control', items:[
+    {n:'★', tab:'torre', label:'Validar Solicitudes'},
+  ]},
+  {group:'Consultas', items:[
+    {n:10, tab:'consultas', label:'Consultas'},
+  ]},
+  {group:'Gobierno', items:[
+    {n:'O', tab:'operaciones', label:'Registrar Operaciones (corrección)'},
+    {n:'D', tab:'dependencias', label:'Registrar Dependencias (corrección)'},
+    {n:'L', tab:'listas', label:'Listas de Validación'},
+    {n:'G', tab:'guia', label:'Guía de Uso'},
+  ]}
+];
+let CONSULTA_MODE = 'dominio';
+
+function setTab(tab, mode){
+  TAB = tab;
+  if(mode) CONSULTA_MODE = mode;
+  renderApp();
+  window.scrollTo(0,0);
+}
+
+function renderSidebarSync(){
+  const el = $('#syncLine');
+  if(!el) return;
+  let lines = [];
+  lines.push(STORAGE_OK
+    ? `<span class="dot on"></span> Borrador guardado ${META.lastSaved? '· '+new Date(META.lastSaved).toLocaleTimeString('es-PE',{hour:'2-digit',minute:'2-digit'}) : ''}`
+    : `<span class="dot"></span> Sin conexión al borrador`);
+  if(fileHandle){
+    lines.push(FILE_SAVE_OK
+      ? `<span class="dot on"></span> Archivo local: guardado ${META.lastFileSave? '· '+new Date(META.lastFileSave).toLocaleTimeString('es-PE',{hour:'2-digit',minute:'2-digit'}) : ''}`
+      : `<span class="dot"></span> Error guardando en archivo local`);
+  }
+  el.innerHTML = lines.map(l=>`<div>${l}</div>`).join('');
+}
+
+function renderSidebar(){
+  const groups = MENU.map(g => `
+    <div class="tab-group-label">${esc(g.group)}</div>
+    ${g.items.map(it => {
+      const active = TAB===it.tab && (!it.mode || CONSULTA_MODE===it.mode);
+      return `<button class="tab-btn ${active?'active':''}"
+        onclick="setTab('${it.tab}'${it.mode?`,'${it.mode}'`:''})">
+        <span class="num">${it.n}</span><span>${esc(it.label)}</span>
+      </button>`;
+    }).join('')}
+  `).join('');
+
+  return `
+  <aside class="sidebar">
+    <div class="brand" style="cursor:pointer;" onclick="setTab('dashboard')" title="Volver al resumen">
+      <div class="mark">Gobierno de APIs · MVP</div>
+      <h1>Inventario Centralizado</h1>
+      <p>Catálogo, operaciones, dependencias y trazabilidad de proyectos</p>
+      <div class="pill-role" style="margin-top:8px;">Perfil: Torre de Control — acceso completo</div>
+    </div>
+    <nav class="tabs">${groups}</nav>
+    <div class="sidebar-foot">
+      <div class="sync-line" id="syncLine"></div>
+    </div>
+  </aside>`;
+}
+
+function githubSyncControls(){
+  if(GITHUB_SYNCING){
+    return `<span class="pill-role" style="border-color:var(--info);color:var(--info);">⏳ Guardando en GitHub…</span>`;
+  }
+  const pending = PENDING_BATCH.length;
+  const sendBtn = pending
+    ? `<button class="btn primary" onclick="enviarATorreControl()">📨 Enviar a Torre de Control <span class="badge warn" style="margin-left:6px;">${pending}</span></button>`
+    : `<span class="pill-role" title="Todo lo que registraste ya está guardado en el Excel oficial de GitHub">✓ Sin cambios pendientes de enviar</span>`;
+  const refreshBtn = githubConfigured()
+    ? `<button class="btn ghost" title="Trae la versión más reciente del Excel oficial desde GitHub" onclick="actualizarDesdeGitHub()">↻ Actualizar desde GitHub</button>`
+    : '';
+  return `${sendBtn}${refreshBtn}`;
+}
+function topbar(title, sub){
+  const fileActions = fileHandle ? `
+      <span class="pill-role" style="border-color:var(--ok);color:var(--ok);">🔗 ${esc(META.fileName||'archivo conectado')}</span>
+      <button class="btn ghost" onclick="disconnectLocalFile()">Desconectar</button>
+      <button class="btn ghost" onclick="exportExcel()">Descargar copia</button>
+    ` : `
+      <label class="btn ghost" style="cursor:pointer;">
+        Importar Excel
+        <input type="file" accept=".xlsx,.xls" onchange="importExcel(this.files[0])">
+      </label>
+      ${FS_ACCESS_SUPPORTED ? `<button class="btn primary" onclick="connectLocalFile()">Editar archivo local (auto-guardado)</button>` : ''}
+      <button class="btn ghost" onclick="exportExcel()">Exportar Excel</button>
+    `;
+  return `
+  <div class="topbar">
+    <div>
+      <h2>${title}</h2>
+      <div class="sub">${sub||''}</div>
+    </div>
+    <div class="file-actions">
+      ${githubSyncControls()}
+      ${fileActions}
+    </div>
+  </div>`;
+}
+
+function renderApp(){
+  const el = $('#app');
+  el.innerHTML = renderSidebar() + `<main class="main" id="mainArea"></main>`;
+  renderSidebarSync();
+  const main = $('#mainArea');
+  main.innerHTML = renderTab();
+}
+function reRenderKeepingFocus(inputId){
+  // renderApp() reemplaza todo el DOM (innerHTML), lo que hace perder el foco de los inputs de texto.
+  // Esta función vuelve a enfocar el input y coloca el cursor al final tras el re-render.
+  renderApp();
+  const el = document.getElementById(inputId);
+  if(el){
+    el.focus();
+    const pos = el.value.length;
+    try{ el.setSelectionRange(pos,pos); }catch(e){}
+  }
+}
+
+function renderTab(){
+  switch(TAB){
+    case 'dashboard': return viewDashboard();
+    case 'buscar': return viewBuscar();
+    case 'crear': return viewCrear();
+    case 'modificar': return viewModificar();
+    case 'reutilizar': return viewReutilizar();
+    case 'operaciones': return viewOperaciones();
+    case 'dependencias': return viewDependencias();
+    case 'historial': return viewHistorial();
+    case 'estado': return viewEstado();
+    case 'cruce': return viewCruce();
+    case 'torre': return viewTorreControl();
+    case 'consultas': return viewConsultas();
+    case 'listas': return viewListas();
+    case 'guia': return viewGuia();
+    default: return viewDashboard();
+  }
+}
+
+function viewDashboard(){
+  const totalApis = DB.apis.length;
+  const totalOps = DB.ops.length;
+  const totalDeps = DB.deps.length;
+  const totalHist = DB.hist.length;
+  const sinOps = DB.apis.filter(a=>opsForApi(a['ID API']).length===0).length;
+  const sinOwner = DB.apis.filter(a=>!lastArchitectFor(a['ID API'])).length;
+  const conExcepcion = DB.apis.filter(a=>String(a['Excepción / Riesgo Identificado']||'').trim()!=='').length;
+  const porRevisar = DB.apis.filter(a=>String(a['Estado de Gobierno']||'').toLowerCase().startsWith('revisar')).length;
+  const pendVal = pendientesValidacion().length;
+  const observadas = DB.hist.filter(h=>h['Estado de Validación']==='Observado').length;
+
+  const porEstado = {};
+  DB.apis.forEach(a=>{ const k=a['Estado_General_API']||'Sin estado'; porEstado[k]=(porEstado[k]||0)+1; });
+  const porDominio = {};
+  DB.apis.forEach(a=>{ const k=a['Business Domain']||'Sin dominio'; porDominio[k]=(porDominio[k]||0)+1; });
+  const topDominios = Object.entries(porDominio).sort((a,b)=>b[1]-a[1]).slice(0,8);
+  const maxDom = Math.max(1,...topDominios.map(d=>d[1]));
+
+  const porAccion = {Creación:0, Modificación:0, Reutilización:0};
+  DB.hist.forEach(h=>{ if(porAccion[h['Acción']]!==undefined) porAccion[h['Acción']]++; });
+
+  const recientes = [...DB.hist].sort((a,b)=> (b['Fecha Registro']||'').localeCompare(a['Fecha Registro']||'')).slice(0,8);
+
+  return `
+    ${topbar('Resumen del inventario', 'Vista general del catálogo centralizado de APIs, operaciones, dependencias y actividad de proyectos.')}
+    ${!META.fileName ? `<div class="alert info"><span>ℹ</span><div><b>Aún no has cargado el Excel maestro.</b> Usa <b>"Editar archivo local (auto-guardado)"</b> arriba si tu carpeta de SharePoint está sincronizada en tu PC (recomendado), o <b>Importar Excel</b> para trabajar de forma manual. Mientras tanto puedes explorar la consola vacía.</div></div>`
+      : fileHandle ? `<div class="alert ok"><span>🔗</span><div>Editando en vivo <b>${esc(META.fileName)}</b> — cada cambio se guarda automáticamente en ese mismo archivo de tu carpeta sincronizada. No necesitas exportar ni volver a subir nada.</div></div>`
+      : `<div class="alert ok"><span>✓</span><div>Trabajando sobre <b>${esc(META.fileName)}</b>${META.lastImport?` · importado ${new Date(META.lastImport).toLocaleString('es-PE')}`:''}. Recuerda <b>Exportar Excel</b> tras cada sesión y reemplazar el archivo maestro compartido.</div></div>`}
+
+    <div class="kpis">
+      <div class="kpi"><div class="n">${totalApis}</div><div class="l">Componentes en catálogo</div></div>
+      <div class="kpi"><div class="n">${totalOps}</div><div class="l">Operaciones registradas</div></div>
+      <div class="kpi"><div class="n">${totalDeps}</div><div class="l">Dependencias mapeadas</div></div>
+      <div class="kpi"><div class="n">${totalHist}</div><div class="l">Eventos de histórico</div></div>
+      <div class="kpi" style="border-left-color:var(--warn)"><div class="n">${sinOps}</div><div class="l">APIs sin operaciones</div></div>
+      <div class="kpi" style="border-left-color:var(--bad)"><div class="n">${sinOwner}</div><div class="l">APIs sin owner</div></div>
+      <div class="kpi" style="border-left-color:var(--bad)"><div class="n">${conExcepcion}</div><div class="l">Con excepción / riesgo</div></div>
+      <div class="kpi" style="border-left-color:var(--warn)"><div class="n">${porRevisar}</div><div class="l">Gobierno: por revisar</div></div>
+      <div class="kpi" style="border-left-color:var(--gold)"><div class="n">${pendVal}</div><div class="l">Torre de Control: por validar</div></div>
+      <div class="kpi" style="border-left-color:var(--bad)"><div class="n">${observadas}</div><div class="l">Observadas (por corregir)</div></div>
+    </div>
+    ${pendVal ? `<div class="alert warn" style="margin-top:-6px;"><span>★</span><div><b>${pendVal} solicitud(es)</b> esperan validación de la Torre de Control. <button class="btn small gold" style="margin-left:8px;" onclick="setTab('torre')">Ir a Validar Solicitudes ›</button></div></div>` : ''}
+
+    <div class="two-col">
+      <div class="card">
+        <h3>APIs por Business Domain</h3>
+        <div class="hint">Los dominios con más concentración son los primeros candidatos a revisar antes de crear un API nuevo.</div>
+        <div class="barlist">
+          ${topDominios.map(([k,v])=>`
+            <div class="barrow">
+              <div class="lbl" title="${esc(k)}">${esc(k)}</div>
+              <div class="track"><div class="fill" style="width:${(v/maxDom*100).toFixed(0)}%"></div></div>
+              <div class="val">${v}</div>
+            </div>`).join('') || '<div class="empty-state">Sin datos aún</div>'}
+        </div>
+      </div>
+      <div class="card">
+        <h3>Estado general de APIs</h3>
+        <div class="barlist">
+          ${Object.entries(porEstado).map(([k,v])=>`
+            <div class="barrow">
+              <div class="lbl">${badgeForEstadoApi(k)}</div>
+              <div class="track"><div class="fill" style="width:${(v/Math.max(1,totalApis)*100).toFixed(0)}%"></div></div>
+              <div class="val">${v}</div>
+            </div>`).join('') || '<div class="empty-state">Sin datos aún</div>'}
+        </div>
+        <div class="section-title">Acciones registradas</div>
+        <div class="barlist">
+          ${Object.entries(porAccion).map(([k,v])=>`
+            <div class="barrow">
+              <div class="lbl">${badgeForAccion(k)}</div>
+              <div class="track"><div class="fill" style="width:${(v/Math.max(1,totalHist)*100).toFixed(0)}%"></div></div>
+              <div class="val">${v}</div>
+            </div>`).join('')}
+        </div>
+      </div>
+    </div>
+
+    <div class="card">
+      <h3>Actividad reciente de proyectos</h3>
+      <div class="hint">Últimos registros en Histórico_Proyectos_API, ordenados por fecha de registro.</div>
+      <div class="table-wrap"><table>
+        <thead><tr><th>ID API</th><th>Proyecto</th><th>Acción</th><th>Fecha registro</th><th>Estado actual</th></tr></thead>
+        <tbody>
+          ${recientes.map(h=>`<tr>
+            <td><code class="idtag">${esc(h['ID API'])}</code></td>
+            <td class="wrap">${esc(h['Proyecto'])}</td>
+            <td>${badgeForAccion(h['Acción'])}</td>
+            <td>${esc(fmtDate(h['Fecha Registro']))}</td>
+            <td>${badgeForEstadoActual(h['Estado_Actual'])}</td>
+          </tr>`).join('') || `<tr><td colspan="5" class="empty-state">Sin actividad registrada todavía.</td></tr>`}
+        </tbody>
+      </table></div>
+    </div>
+  `;
+}
+
+/* ---------------------------------------------------------------- BUSCAR API */
+let buscarState = {q:'', pais:'', tipo:'', estados:[], dominio:'', arquitecto:'', proyecto:'', quarters:[], anios:[], acciones:[], page:1, pageSize:20};
+function architectsForApi(id){ return Array.from(new Set(histForApi(id).map(h=>h['Arquitecto Solución']).filter(Boolean))); }
+function projectsForApi(id){ return Array.from(new Set(histForApi(id).map(h=>h['Proyecto']).filter(Boolean))); }
+function accionesForApi(id){ return Array.from(new Set(histForApi(id).map(h=>h['Acción']).filter(Boolean))); }
+function countApisBy(field){
+  const map = {};
+  DB.apis.forEach(a=>{
+    const vals = Array.from(new Set(histForApi(a['ID API']).map(h=>h[field]).filter(Boolean)));
+    vals.forEach(v=>{ map[v] = (map[v]||0)+1; });
+  });
+  return Object.entries(map).sort((x,y)=>y[1]-x[1]);
+}
+function apiQuarterInfo(id){
+  // Toma el registro de histórico con el Quarter Publicación más avanzado (próximo cierre/pase a producción) — solo para mostrar en la tabla
+  let best = null;
+  histForApi(id).forEach(h=>{
+    if(!h['Quarter Publicación']) return;
+    if(!best || quarterSortKey(h['Quarter Publicación']) > quarterSortKey(best['Quarter Publicación'])) best = h;
+  });
+  return best ? {quarter:best['Quarter Publicación'], fecha:best['Fecha Pase Producción']} : {quarter:'', fecha:''};
+}
+function quarterNumberOf(quarterLabel){
+  // Solo acepta el formato exacto "Q3-2026" (Q + dígito 1-4 + guion + año de 4 dígitos)
+  const m = /^Q([1-4])-\d{4}$/.exec(String(quarterLabel||'').trim());
+  return m ? parseInt(m[1],10) : null;
+}
+function yearOf(quarterLabel){
+  const m = /^Q[1-4]-(\d{4})$/.exec(String(quarterLabel||'').trim());
+  return m ? parseInt(m[1],10) : null;
+}
+function apiQuarterNumbers(id){
+  // Lee directamente la columna Quarter Publicación de Histórico_Proyectos_API para esta API (formato exacto Q#-AAAA)
+  return new Set(histForApi(id).map(h=>quarterNumberOf(h['Quarter Publicación'])).filter(Boolean));
+}
+function toggleEstadoFilter(v){
+  const i = buscarState.estados.indexOf(v);
+  if(i>=0) buscarState.estados.splice(i,1); else buscarState.estados.push(v);
+  buscarState.page = 1;
+  renderApp();
+}
+function toggleQuarterFilter(qn){
+  const i = buscarState.quarters.indexOf(qn);
+  if(i>=0) buscarState.quarters.splice(i,1); else buscarState.quarters.push(qn);
+  buscarState.page = 1;
+  renderApp();
+}
+function toggleAnioFilter(yr){
+  const i = buscarState.anios.indexOf(yr);
+  if(i>=0) buscarState.anios.splice(i,1); else buscarState.anios.push(yr);
+  buscarState.page = 1;
+  renderApp();
+}
+function toggleAccionFilter(acc){
+  const i = buscarState.acciones.indexOf(acc);
+  if(i>=0) buscarState.acciones.splice(i,1); else buscarState.acciones.push(acc);
+  buscarState.page = 1;
+  renderApp();
+}
+function viewBuscar(){
+  let apis = DB.apis.slice();
+  const s = buscarState;
+  if(s.q){
+    const q = s.q.toLowerCase();
+    apis = apis.filter(a => [a['ID API'],a['Nombre API'],a['Descripción'],a['Business Domain'],a['Service Domain'],a['Business Area']]
+      .some(v => String(v||'').toLowerCase().includes(q)));
+  }
+  if(s.pais) apis = apis.filter(a=>a['País']===s.pais);
+  if(s.tipo) apis = apis.filter(a=>String(a['Tipo API']||'').trim()===s.tipo);
+  if(s.estados.length) apis = apis.filter(a=>s.estados.includes(a['Estado_General_API']));
+  if(s.dominio) apis = apis.filter(a=>a['Business Domain']===s.dominio);
+
+  // Arquitecto, Proyecto, Acción, Quarter y Año deben cumplirse en UN MISMO registro de histórico
+  // (p.ej. "Q3-2026 + Creación" = el evento de creación ocurrió exactamente en ese quarter/año)
+  const histFiltersActive = !!(s.arquitecto || s.proyecto || s.acciones.length || s.quarters.length || s.anios.length);
+  function rowMatches(h){
+    if(s.arquitecto && String(h['Arquitecto Solución']||'').trim()!==s.arquitecto) return false;
+    if(s.proyecto && String(h['Proyecto']||'').trim()!==s.proyecto) return false;
+    if(s.acciones.length){
+      const acc = String(h['Acción']||'').trim();
+      if(!s.acciones.some(x=>x.toLowerCase()===acc.toLowerCase())) return false;
+    }
+    if(s.quarters.length){
+      const qn = quarterNumberOf(h['Quarter Publicación']);
+      if(!qn || !s.quarters.includes(qn)) return false;
+    }
+    if(s.anios.length){
+      const yr = yearOf(h['Quarter Publicación']);
+      if(!yr || !s.anios.includes(yr)) return false;
+    }
+    return true;
+  }
+
+  // Cuando hay filtros de histórico activos, cada fila de histórico que coincide genera su propia
+  // entrada en la tabla (una API con 2 proyectos que coinciden aparece 2 veces, una por proyecto).
+  let entries = [];
+  apis.forEach(a=>{
+    if(histFiltersActive){
+      histForApi(a['ID API']).filter(rowMatches).forEach(h=>entries.push({api:a, hist:h}));
+    } else {
+      entries.push({api:a, hist:null});
+    }
+  });
+
+  // Cuenta cuántas veces aparece cada API en el resultado actual — si un ID se repite es porque tiene
+  // más de un registro de histórico que coincide con los filtros (p.ej. 2 filas de "Creación" para la
+  // misma API), no porque el filtro esté fallando. Se muestra para que sea visible, no se oculta.
+  const apiOccurrences = {};
+  entries.forEach(e=>{ const id=e.api['ID API']; apiOccurrences[id]=(apiOccurrences[id]||0)+1; });
+
+  // Ordena por fecha de pase a producción más próxima primero cuando hay un filtro de quarter/año activo
+  if(s.quarters.length || s.anios.length){
+    entries = entries.slice().sort((x,y)=> String((x.hist&&x.hist['Fecha Pase Producción'])||'').localeCompare(String((y.hist&&y.hist['Fecha Pase Producción'])||'')));
+  }
+
+  const totalEncontradas = entries.length;
+  const pageSize = s.pageSize || 20;
+  const totalPages = Math.max(1, Math.ceil(totalEncontradas / pageSize));
+  if(s.page > totalPages) s.page = totalPages;
+  if(s.page < 1) s.page = 1;
+  const startIdx = (s.page - 1) * pageSize;
+  const pageEntries = entries.slice(startIdx, startIdx + pageSize);
+
+  const dominios = uniqueVals(DB.apis,'Business Domain');
+  const arquitectos = uniqueVals(DB.hist,'Arquitecto Solución');
+  const proyectos = uniqueVals(DB.hist,'Proyecto');
+  const anios = Array.from(new Set(DB.hist.map(h=>yearOf(h['Quarter Publicación'])).filter(Boolean))).sort();
+  const porArquitecto = countApisBy('Arquitecto Solución').slice(0,8);
+  const porProyecto = countApisBy('Proyecto').slice(0,8);
+  const maxArq = Math.max(1,...porArquitecto.map(x=>x[1]));
+  const maxProy = Math.max(1,...porProyecto.map(x=>x[1]));
+
+  const porQuarterNum = {1:0,2:0,3:0,4:0};
+  DB.apis.forEach(a=>{ apiQuarterNumbers(a['ID API']).forEach(qn=>{ porQuarterNum[qn]++; }); });
+  const maxQ = Math.max(1,...Object.values(porQuarterNum));
+
+  return `
+    ${topbar('Buscar API', 'Antes de registrar un componente nuevo (API, microservicio, tópico o batch), verifica siempre si ya existe uno equivalente o reutilizable en el catálogo.')}
+
+    <div class="two-col">
+      <div class="card">
+        <h3>APIs por Arquitecto de Solución</h3>
+        <div class="hint">Cuántas APIs distintas ha creado, modificado o reutilizado cada arquitecto. Clic para filtrar.</div>
+        <div class="barlist">
+          ${porArquitecto.map(([k,v])=>`
+            <div class="barrow" style="cursor:pointer;" onclick="buscarState.arquitecto='${esc(k)}'; buscarState.page=1; renderApp();">
+              <div class="lbl" title="${esc(k)}">${esc(k)}</div>
+              <div class="track"><div class="fill" style="width:${(v/maxArq*100).toFixed(0)}%"></div></div>
+              <div class="val">${v}</div>
+            </div>`).join('') || '<div class="empty-state">Sin datos aún</div>'}
+        </div>
+      </div>
+      <div class="card">
+        <h3>APIs por Proyecto</h3>
+        <div class="hint">Cuántas APIs distintas ha tocado cada proyecto (creación, modificación o reutilización). Clic para filtrar.</div>
+        <div class="barlist">
+          ${porProyecto.map(([k,v])=>`
+            <div class="barrow" style="cursor:pointer;" onclick="buscarState.proyecto='${esc(k)}'; buscarState.page=1; renderApp();">
+              <div class="lbl" title="${esc(k)}">${esc(k)}</div>
+              <div class="track"><div class="fill" style="width:${(v/maxProy*100).toFixed(0)}%"></div></div>
+              <div class="val">${v}</div>
+            </div>`).join('') || '<div class="empty-state">Sin datos aún</div>'}
+        </div>
+      </div>
+    </div>
+
+    <div class="card">
+      <h3>APIs por Quarter de pase a producción</h3>
+      <div class="hint">Con cuántas APIs se relaciona cada quarter (Q1–Q4), leído directamente de la columna <b>Quarter Publicación</b> de Histórico_Proyectos_API (todos los años). Clic para (des)marcar — puedes seleccionar varios a la vez. Combina con Año para acotar a un Quarter-Año exacto como "Q3-2026".</div>
+      <div class="barlist">
+        ${[1,2,3,4].map(qn=>{
+          const v = porQuarterNum[qn]||0;
+          const active = s.quarters.includes(qn);
+          return `<div class="barrow" style="cursor:pointer;" onclick="toggleQuarterFilter(${qn})">
+              <div class="lbl">Q${qn}${active?' <span class="badge gold" style="background:var(--gold);color:#fff;margin-left:4px;">seleccionado</span>':''}</div>
+              <div class="track"><div class="fill" style="width:${(v/maxQ*100).toFixed(0)}%;${active?'background:var(--gold-dark);':''}"></div></div>
+              <div class="val">${v}</div>
+            </div>`;
+        }).join('')}
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="search-row">
+        <input type="search" id="buscarSearchInput" style="flex:1 1 100%;" placeholder="Buscar por ID, nombre, descripción, dominio o service domain…" value="${esc(s.q)}" oninput="buscarState.q=this.value; buscarState.page=1; reRenderKeepingFocus('buscarSearchInput');">
+      </div>
+
+      <div class="section-title" style="margin:14px 0 8px;">Filtros del catálogo</div>
+      <div class="search-row">
+        <select onchange="buscarState.pais=this.value; buscarState.page=1; renderApp();">
+          <option value="">País (todos)</option>
+          ${getList('Pais').map(p=>`<option ${s.pais===p?'selected':''}>${esc(p)}</option>`).join('')}
+        </select>
+        <select onchange="buscarState.tipo=this.value; buscarState.page=1; renderApp();">
+          <option value="">Tipo BIAN (todos)</option>
+          ${getList('TipoAPI_BIAN').map(p=>`<option value="${esc(p.trim())}" ${s.tipo===p.trim()?'selected':''}>${esc(p.trim())}</option>`).join('')}
+        </select>
+        <select onchange="buscarState.dominio=this.value; buscarState.page=1; renderApp();">
+          <option value="">Business Domain (todos)</option>
+          ${dominios.map(p=>`<option ${s.dominio===p?'selected':''}>${esc(p)}</option>`).join('')}
+        </select>
+        <select onchange="buscarState.arquitecto=this.value; buscarState.page=1; renderApp();">
+          <option value="">Arquitecto (todos)</option>
+          ${arquitectos.map(p=>`<option ${s.arquitecto===p?'selected':''}>${esc(p)}</option>`).join('')}
+        </select>
+        <select onchange="buscarState.proyecto=this.value; buscarState.page=1; renderApp();">
+          <option value="">Proyecto (todos)</option>
+          ${proyectos.map(p=>`<option ${s.proyecto===p?'selected':''}>${esc(p)}</option>`).join('')}
+        </select>
+      </div>
+
+      <div class="section-title" style="margin:14px 0 8px;">Filtros de histórico (selección múltiple)</div>
+      <div style="display:flex; flex-direction:column; gap:9px;">
+        <div class="chips" style="align-items:center;">
+          <span style="font-size:12px;color:var(--slate-soft);min-width:58px;">Estado:</span>
+          ${getList('EstadoGeneralAPI').map(p=>`<div class="chip ${s.estados.includes(p)?'active':''}" onclick="toggleEstadoFilter('${esc(p)}')">${esc(p)}</div>`).join('')}
+        </div>
+        <div class="chips" style="align-items:center;">
+          <span style="font-size:12px;color:var(--slate-soft);min-width:58px;">Acción:</span>
+          ${getList('Accion').map(p=>`<div class="chip ${s.acciones.includes(p)?'active':''}" onclick="toggleAccionFilter('${esc(p)}')">${esc(p)}</div>`).join('')}
+        </div>
+        <div class="chips" style="align-items:center;">
+          <span style="font-size:12px;color:var(--slate-soft);min-width:58px;">Quarter:</span>
+          ${[1,2,3,4].map(qn=>`<div class="chip ${s.quarters.includes(qn)?'active':''}" onclick="toggleQuarterFilter(${qn})">Q${qn}</div>`).join('')}
+        </div>
+        <div class="chips" style="align-items:center;">
+          <span style="font-size:12px;color:var(--slate-soft);min-width:58px;">Año:</span>
+          ${anios.length ? anios.map(y=>`<div class="chip ${s.anios.includes(y)?'active':''}" onclick="toggleAnioFilter(${y})">${y}</div>`).join('') : '<span class="hint" style="margin:0;">Sin años registrados aún</span>'}
+        </div>
+      </div>
+
+      <div style="margin-top:14px;">
+        <button class="btn ghost" onclick="buscarState={q:'',pais:'',tipo:'',estados:[],dominio:'',arquitecto:'',proyecto:'',quarters:[],anios:[],acciones:[],page:1,pageSize:buscarState.pageSize}; renderApp();">Limpiar todos los filtros</button>
+      </div>
+
+      <div class="hint" style="margin-top:12px;">Total encontradas: <b>${totalEncontradas}</b>${histFiltersActive?' (una fila por API-proyecto coincidente; una misma API puede repetirse si calza con más de un proyecto)':` de ${DB.apis.length} APIs`}${s.arquitecto?` · Arquitecto: <b>${esc(s.arquitecto)}</b>`:''}${s.proyecto?` · Proyecto: <b>${esc(s.proyecto)}</b>`:''}${s.estados.length?` · Estado: <b>${s.estados.join(', ')}</b>`:''}${s.quarters.length?` · Quarter: <b>${s.quarters.slice().sort().map(q=>'Q'+q).join(', ')}</b>`:''}${s.anios.length?` · Año: <b>${s.anios.slice().sort().join(', ')}</b>`:''}${s.acciones.length?` · Acción: <b>${s.acciones.join(', ')}</b>`:''}</div>
+      <div class="table-wrap"><table>
+        <thead><tr><th>ID</th><th>Nombre</th><th>Proyecto</th><th>Acción</th><th>Componente</th><th>Business Domain</th><th>Service Domain</th><th>Estado</th><th>Validación</th><th>Versión</th><th>Fecha pase producción</th><th>Quarter</th><th>Ops</th><th></th></tr></thead>
+        <tbody>
+          ${pageEntries.map(({api:a, hist:h})=>{
+            const nops = opsForApi(a['ID API']).length;
+            // Si la fila viene de un registro de histórico específico (por un filtro activo), se usa
+            // ESA fila para Proyecto/Acción/Fecha/Quarter; si no, se muestra el resumen general del API.
+            const qInfo = h ? {quarter:h['Quarter Publicación'], fecha:h['Fecha Pase Producción']} : apiQuarterInfo(a['ID API']);
+            const proyectoTxt = h ? (h['Proyecto']||'—') : (projectsForApi(a['ID API']).join(', ') || '—');
+            const accionTxt = h ? h['Acción'] : '';
+            const occ = apiOccurrences[a['ID API']]||1;
+            return `<tr>
+              <td><code class="idtag">${esc(a['ID API'])}</code>${occ>1?` <span class="badge warn" title="Esta API tiene ${occ} registros de histórico que coinciden con los filtros — no es un error del filtro, revisa si son duplicados en Histórico_Proyectos_API.">×${occ}</span>`:''}</td>
+              <td class="wrap">${esc(a['Nombre API'])}</td>
+              <td class="wrap">${esc(proyectoTxt)}</td>
+              <td>${accionTxt?badgeForAccion(accionTxt):'—'}</td>
+              <td>${badgeForTipoComponente(a['Tipo de Componente'])}${tipoComponenteOf(a)==='API' && a['Tipo API'] ? ` <span class="tag" style="font-size:10px;">${esc(String(a['Tipo API']).trim())}</span>` : ''}</td>
+              <td class="wrap">${esc(a['Business Domain'])}</td>
+              <td class="wrap">${esc(a['Service Domain'])}</td>
+              <td>${badgeForEstadoApi(a['Estado_General_API'])}</td>
+              <td>${String(a['Excepción / Riesgo Identificado']||'').trim()?'<span class="badge bad" title="Tiene excepción/riesgo identificado">⚠ riesgo</span> ':''}${badgeForEstadoValidacion(latestValidacionEstadoForApi(a['ID API']))}</td>
+              <td>${esc(a['Versión Actual'])}</td>
+              <td>${esc(fmtDate(qInfo.fecha))||'—'}</td>
+              <td>${qInfo.quarter?`<span class="badge neutral">${esc(qInfo.quarter)}</span>`:'—'}</td>
+              <td>${nops===0?`<span class="badge warn">0</span>`:nops}</td>
+              <td><button class="rowbtn" onclick="openApiDetail('${esc(a['ID API'])}')">Ver ficha ›</button></td>
+            </tr>`;
+          }).join('') || `<tr><td colspan="14" class="empty-state"><div class="big">Sin resultados</div>No hay APIs que coincidan con tu búsqueda — buena señal antes de crear una nueva, o ajusta los filtros.</td></tr>`}
+        </tbody>
+      </table></div>
+      ${totalEncontradas ? `
+      <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:10px;margin-top:14px;">
+        <div style="font-size:12.5px;color:var(--slate-soft);">
+          Mostrando ${startIdx+1}–${Math.min(startIdx+pageSize,totalEncontradas)} de ${totalEncontradas}
+          &nbsp;·&nbsp; Filas por página:
+          <select style="margin-left:4px;padding:5px 8px;border:1px solid var(--line);border-radius:4px;font-size:12px;" onchange="buscarState.pageSize=parseInt(this.value,10); buscarState.page=1; renderApp();">
+            ${[10,20,50].map(n=>`<option value="${n}" ${pageSize===n?'selected':''}>${n}</option>`).join('')}
+          </select>
+        </div>
+        <div style="display:flex;align-items:center;gap:8px;">
+          <button class="btn small ghost" ${s.page<=1?'disabled':''} onclick="buscarState.page=1; renderApp();">« Primera</button>
+          <button class="btn small ghost" ${s.page<=1?'disabled':''} onclick="buscarState.page=${s.page-1}; renderApp();">‹ Anterior</button>
+          <span style="font-size:12.5px;color:var(--slate);">Página ${s.page} de ${totalPages}</span>
+          <button class="btn small ghost" ${s.page>=totalPages?'disabled':''} onclick="buscarState.page=${s.page+1}; renderApp();">Siguiente ›</button>
+          <button class="btn small ghost" ${s.page>=totalPages?'disabled':''} onclick="buscarState.page=${totalPages}; renderApp();">Última »</button>
+        </div>
+      </div>` : ''}
+    </div>
+  `;
+}
+
+function openApiDetail(id){
+  const a = findApi(id);
+  if(!a){ toast('API no encontrada','bad'); return; }
+  const ops = opsForApi(id);
+  const hist = histForApi(id);
+  const consumidas = depsForApiAsConsumer(id);
+  const consumidores = depsForApiAsProvider(id);
+  const body = `
+    <h3>${esc(a['Nombre API'])} <code class="idtag">${esc(id)}</code></h3>
+    <div class="tag-list">
+      ${badgeForTipoComponente(a['Tipo de Componente'])}
+      ${badgeForEstadoApi(a['Estado_General_API'])}
+      ${tipoComponenteOf(a)==='API' && a['Tipo API'] ? `<span class="tag">${esc(String(a['Tipo API']).trim())}</span>` : ''}
+      <span class="tag">${esc(a['País'])}</span>
+      <span class="tag">v${esc(a['Versión Actual'])}</span>
+      <span class="tag">${esc(a['Estilo Diseño'])}</span>
+    </div>
+    <p style="margin-top:12px;">${esc(a['Descripción'])||'<i>Sin descripción registrada.</i>'}</p>
+    <div class="form-grid" style="margin-top:6px;">
+      <div class="field"><label>Business Area</label><div>${esc(a['Business Area'])||'—'}</div></div>
+      <div class="field"><label>Business Domain</label><div>${esc(a['Business Domain'])||'—'}</div></div>
+      <div class="field"><label>Service Domain</label><div>${esc(a['Service Domain'])||'—'}</div></div>
+      <div class="field"><label>Canal de integración</label><div>${esc(a['Canal Integración (Despliegue)'])||'—'}</div></div>
+      <div class="field"><label>Complejidad</label><div>${esc(a['Complejidad'])||'—'}</div></div>
+      <div class="field"><label>Owner / Arquitecto actual</label><div>${esc(lastArchitectFor(id))||'<span class="badge warn">Sin owner</span>'}</div></div>
+      <div class="field"><label>Service Owner</label><div>${esc(a['Service Owner'])||'—'}</div></div>
+      <div class="field"><label>Caso de Uso</label><div>${esc(a['Caso de Uso'])||'—'}</div></div>
+      <div class="field"><label>Repositorios Involucrados</label><div>${esc(a['Repositorios Involucrados'])||'—'}</div></div>
+    </div>
+
+    <div class="section-title">Gobierno</div>
+    <div class="tag-list">
+      <span class="tag">Última validación: </span>${badgeForEstadoValidacion(latestValidacionEstadoForApi(id))}
+      ${a['Estado de Gobierno'] ? badgeForEstadoGobierno(a['Estado de Gobierno']) : ''}
+      ${a['Existe en Catálogo BIAN'] ? `<span class="tag">Existe en Catálogo BIAN: ${esc(a['Existe en Catálogo BIAN'])}</span>` : ''}
+      ${a['Posible Duplicado en Backlog'] ? `<span class="tag">Posible duplicado en backlog: ${esc(a['Posible Duplicado en Backlog'])}</span>` : ''}
+    </div>
+    ${String(a['Excepción / Riesgo Identificado']||'').trim() ? `<div class="alert bad" style="margin-top:10px;"><span>⚠</span><div><b>Excepción / riesgo identificado:</b> ${esc(a['Excepción / Riesgo Identificado'])}</div></div>` : ''}
+
+    <div class="section-title">Operaciones (${ops.length})</div>
+    ${ops.length? `<div class="table-wrap"><table><thead><tr><th>ID</th><th>Método</th><th>Path</th><th>Estado</th></tr></thead><tbody>
+      ${ops.map(o=>`<tr><td><code class="idtag">${esc(o['ID Operación'])}</code></td><td>${esc(o['Método HTTP'])}</td><td class="wrap">${esc(o['Path - Endpoint'])}</td><td>${o['Estado Operación']==='Activa'?'<span class="badge ok">Activa</span>':'<span class="badge bad">Deprecada</span>'}</td></tr>`).join('')}
+    </tbody></table></div>` : `<div class="empty-state">Este API no tiene operaciones registradas.</div>`}
+
+    <div class="section-title">Dependencias</div>
+    <div class="form-grid">
+      <div><b style="font-size:12px;">Consume (${consumidas.length})</b>${consumidas.map(d=>`<div class="tag" style="margin-top:4px;">[${esc(d['Tipo_Artefacto_Consumido'])||'Componente del Catálogo'}] ${d['ID_API_Consumida']?esc(d['ID_API_Consumida'])+' — ':''}${esc(d['Nombre_API_Consumida'])} ${badgeForRiesgoCriticidad(d['Criticidad'])}</div>`).join('')||'<div class="hint">Ninguna</div>'}</div>
+      <div><b style="font-size:12px;">Es consumida por (${consumidores.length})</b>${consumidores.map(d=>`<div class="tag" style="margin-top:4px;">${esc(d['ID_API_Consumidor'])} — ${esc(d['Nombre_API_Consumidor'])}</div>`).join('')||'<div class="hint">Ninguna</div>'}</div>
+    </div>
+
+    <div class="section-title">Trazabilidad de proyectos (${hist.length})</div>
+    <div class="trace">
+      ${hist.map(h=>`<div class="trace-item">
+        <div class="th">${badgeForAccion(h['Acción'])} ${esc(h['Proyecto'])}${h['Tribu']?` <span class="tag" style="font-weight:400;">${esc(h['Tribu'])}</span>`:''} ${badgeForEstadoValidacion(h['Estado de Validación'])}</div>
+        <div class="tm">${esc(fmtDate(h['Fecha Registro']))} · Arquitecto: ${esc(h['Arquitecto Solución'])||'—'} · ${badgeForEstadoActual(h['Estado_Actual'])}</div>
+        <div class="tag-list" style="margin-top:6px;">
+          <span class="tag">PO/Líder Usuario: ${esc(h['PO/Líder Usuario'])||'—'}</span>
+          <span class="tag">TTL: ${esc(h['TTL'])||'—'}</span>
+          <span class="tag">Jefe Proyecto: ${esc(h['Jefe Proyecto'])||'—'}</span>
+          <span class="tag">Líder Técnico: ${esc(h['Líder Técnico'])||'—'}</span>
+        </div>
+        <div style="margin-top:6px;">${etapasResumen(h)}</div>
+        ${h['Comentarios']?`<div class="tc">${esc(h['Comentarios'])}</div>`:''}
+      </div>`).join('') || '<div class="empty-state">Sin historial.</div>'}
+    </div>
+    <div class="formbar">
+      <button class="btn ghost" onclick="closeModal()">Cerrar</button>
+      <button class="btn" onclick="closeModal(); prefillApi='${esc(id)}'; setTab('reutilizar');">Reutilizar</button>
+      <button class="btn gold" onclick="closeModal(); prefillApi='${esc(id)}'; setTab('modificar');">Modificar</button>
+    </div>
+  `;
+  openModal(body);
+}
+
+function openModal(html){
+  $('#modalBody').innerHTML = html;
+  $('#modalBackdrop').classList.add('show');
+}
+function closeModal(){ $('#modalBackdrop').classList.remove('show'); }
+
+/* ---------------------------------------------------------------- CREAR API */
+let prefillApi = null;
+var crearOps = [];
+function resetCrearOps(){ crearOps = [{id:uid(), metodo:'GET', path:'', desc:'', version:'v1.0.0', estado:'Activa'}]; }
+var crearDeps = [];
+function resetCrearDeps(){ crearDeps = []; }
+resetCrearOps();
+
+function opRowsEditor(containerVar, rowsArr){
+  return `
+    <div class="subtable-head">
+      <span>Método</span><span>Path / Endpoint</span><span>Descripción</span><span>Versión desde</span><span>Estado</span><span></span>
+    </div>
+    <div id="${containerVar}Rows">${opRowsHtml(containerVar, rowsArr)}</div>
+    <button type="button" class="btn small ghost" onclick="addOpRow('${containerVar}')">+ Agregar operación</button>
+  `;
+}
+function opRowsHtml(containerVar, rowsArr){
+  return rowsArr.map((r,i)=>`
+    <div class="subtable-row">
+      <select onchange="${containerVar}[${i}].metodo=this.value">
+        ${getList('MetodoHTTP').map(m=>`<option ${r.metodo===m?'selected':''}>${m}</option>`).join('')}
+      </select>
+      <input placeholder="/v1/recurso/{id}" value="${esc(r.path)}" oninput="${containerVar}[${i}].path=this.value">
+      <input placeholder="Descripción breve" value="${esc(r.desc)}" oninput="${containerVar}[${i}].desc=this.value">
+      <input placeholder="v1.0.0" value="${esc(r.version)}" oninput="${containerVar}[${i}].version=this.value">
+      <select onchange="${containerVar}[${i}].estado=this.value">
+        ${getList('EstadoOperacion').map(m=>`<option ${r.estado===m?'selected':''}>${m}</option>`).join('')}
+      </select>
+      <button type="button" class="iconbtn" onclick="removeOpRow('${containerVar}',${i})" title="Quitar">✕</button>
+    </div>`).join('') || '<div class="empty-state">Sin operaciones agregadas.</div>';
+}
+function addOpRow(containerVar){
+  const arr = window[containerVar];
+  arr.push({id:uid(), metodo:'GET', path:'', desc:'', version:'v1.0.0', estado:'Activa'});
+  document.getElementById(containerVar+'Rows').innerHTML = opRowsHtml(containerVar, arr);
+}
+function removeOpRow(containerVar, i){
+  const arr = window[containerVar];
+  arr.splice(i,1);
+  document.getElementById(containerVar+'Rows').innerHTML = opRowsHtml(containerVar, arr);
+}
+
+/* --- Editor reutilizable de Dependencias (Crear/Modificar API): la consumida no siempre
+   es otra API del catálogo — puede ser un microservicio, un evento/topic o un batch. --- */
+function newDepRow(){ return {tipoArtefacto:'Componente del Catálogo', consumidaId:'', consumidaNombre:'', tipoDep:getList('TipoDependencia')[0]||'', criticidad:'Media', comentarios:''}; }
+function depRowsEditor(containerVar, rowsArr){
+  return `
+    <div class="subtable-head" style="grid-template-columns:1.1fr 1.4fr 1fr .8fr 1.3fr 32px;">
+      <span>Tipo de artefacto</span><span>Consumida</span><span>Tipo dependencia</span><span>Criticidad</span><span>Comentarios</span><span></span>
+    </div>
+    <div id="${containerVar}Rows">${depRowsHtml(containerVar, rowsArr)}</div>
+    <button type="button" class="btn small ghost" onclick="addDepRow('${containerVar}')">+ Agregar dependencia</button>
+  `;
+}
+function depRowsHtml(containerVar, rowsArr){
+  return rowsArr.map((r,i)=>`
+    <div class="subtable-row" style="grid-template-columns:1.1fr 1.4fr 1fr .8fr 1.3fr 32px;">
+      <select onchange="${containerVar}[${i}].tipoArtefacto=this.value; renderDepRows('${containerVar}')">
+        ${getList('TipoArtefactoConsumido').map(t=>`<option ${r.tipoArtefacto===t?'selected':''}>${esc(t)}</option>`).join('')}
+      </select>
+      ${r.tipoArtefacto==='Componente del Catálogo' ? `
+        <select onchange="${containerVar}[${i}].consumidaId=this.value">
+          <option value="">— Selecciona un API —</option>
+          ${apiSelectOptions(r.consumidaId)}
+        </select>
+      ` : `
+        <input placeholder="Ej. checkout-svc / topic-pagos-confirmados / batch-conciliacion" value="${esc(r.consumidaNombre||'')}" oninput="${containerVar}[${i}].consumidaNombre=this.value">
+      `}
+      <select onchange="${containerVar}[${i}].tipoDep=this.value">${getList('TipoDependencia').map(t=>`<option ${r.tipoDep===t?'selected':''}>${esc(t)}</option>`).join('')}</select>
+      <select onchange="${containerVar}[${i}].criticidad=this.value">${getList('Criticidad').map(t=>`<option ${r.criticidad===t?'selected':''}>${esc(t)}</option>`).join('')}</select>
+      <input placeholder="Comentarios" value="${esc(r.comentarios||'')}" oninput="${containerVar}[${i}].comentarios=this.value">
+      <button type="button" class="iconbtn" onclick="removeDepRow('${containerVar}',${i})" title="Quitar">✕</button>
+    </div>`).join('') || '<div class="empty-state">Sin dependencias agregadas.</div>';
+}
+function renderDepRows(containerVar){
+  document.getElementById(containerVar+'Rows').innerHTML = depRowsHtml(containerVar, window[containerVar]);
+}
+function addDepRow(containerVar){
+  window[containerVar].push(newDepRow());
+  renderDepRows(containerVar);
+}
+function removeDepRow(containerVar, i){
+  window[containerVar].splice(i,1);
+  renderDepRows(containerVar);
+}
+function pushDepRowsFor(consumidorId, consumidorNombre, rowsArr){
+  let n = 0;
+  rowsArr.forEach(r=>{
+    let pId='', pNombre='';
+    if(r.tipoArtefacto==='Componente del Catálogo'){
+      if(!r.consumidaId) return;
+      pId = r.consumidaId;
+      const pApi = findApi(pId);
+      pNombre = pApi?pApi['Nombre API']:'';
+    } else {
+      if(!String(r.consumidaNombre||'').trim()) return;
+      pNombre = r.consumidaNombre.trim();
+    }
+    DB.deps.push({
+      'ID_API_Consumidor':consumidorId, 'Nombre_API_Consumidor':consumidorNombre,
+      'Tipo_Artefacto_Consumido':r.tipoArtefacto,
+      'ID_API_Consumida':pId, 'Nombre_API_Consumida':pNombre,
+      'Tipo_Dependencia':r.tipoDep, 'Criticidad':r.criticidad, 'Comentarios':(r.comentarios||'').trim()
+    });
+    n++;
+  });
+  return n;
+}
+
+function checkDuplicidad(term, targetId){
+  const box = document.getElementById(targetId);
+  if(!box) return;
+  if(!term || term.trim().length<3){ box.innerHTML=''; return; }
+  const t = term.toLowerCase();
+  const matches = DB.apis.filter(a => (a['Nombre API']||'').toLowerCase().includes(t) || (a['Business Domain']||'').toLowerCase().includes(t) || (a['Service Domain']||'').toLowerCase().includes(t)).slice(0,6);
+  if(!matches.length){ box.innerHTML = `<div class="alert ok" style="margin-top:10px;"><span>✓</span><div>No se encontraron APIs similares por nombre o dominio. Puedes continuar con la creación.</div></div>`; return; }
+  box.innerHTML = `<div class="alert warn" style="margin-top:10px;"><span>⚠</span><div><b>Posible reutilización disponible — revisa antes de continuar:</b><ul>
+    ${matches.map(m=>`<li><code class="idtag">${esc(m['ID API'])}</code> ${esc(m['Nombre API'])} — ${esc(m['Business Domain'])} / ${esc(m['Service Domain'])} ${badgeForEstadoApi(m['Estado_General_API'])}</li>`).join('')}
+  </ul>Si alguna cumple la necesidad, usa <b>Reutilizar API</b> o <b>Modificar API</b> en vez de crear una nueva.</div></div>`;
+}
+
+function viewCrear(){
+  const sugId = nextComponentId('API');
+  const pre = prefillApi ? findApi(prefillApi) : null;
+  prefillApi = null;
+  resetCrearOps();
+  resetCrearDeps();
+  const domainList = uniqueVals(DB.apis,'Business Domain');
+  const areaList = uniqueVals(DB.apis,'Business Area');
+  const svcList = uniqueVals(DB.apis,'Service Domain');
+  const today = new Date().toISOString().slice(0,10);
+
+  return `
+    ${topbar('Registrar Componente', 'Registra cualquier componente del ecosistema de integración — API, microservicio, tópico/evento o batch — solo después de confirmar que no existe uno equivalente reutilizable. Todos se guardan en el mismo Catálogo, que es la fuente única de verdad.')}
+    <div class="stepline"><b>Paso 1</b> · Verificar reutilización &nbsp;→&nbsp; <b>Paso 2</b> · Datos del componente &nbsp;→&nbsp; <b>Paso 3</b> · Operaciones &nbsp;→&nbsp; <b>Paso 4</b> · Dependencias &nbsp;→&nbsp; <b>Paso 5</b> · Registro de proyecto</div>
+
+    <div class="card">
+      <fieldset class="section">
+        <legend>Paso 1 · Verificación de reutilización</legend>
+        <div class="field"><label>Busca por nombre o dominio antes de continuar</label>
+          <input type="search" placeholder="Ej. simulación de crédito, gestión de clientes…" oninput="checkDuplicidad(this.value,'dupBoxCrear')">
+        </div>
+        <div id="dupBoxCrear"></div>
+      </fieldset>
+
+      <form id="crearForm" onsubmit="return submitCrear(event)">
+        <fieldset class="section">
+          <legend>Paso 2 · Datos del componente (Catálogo_APIs)</legend>
+          <div class="form-grid g3">
+            <div class="field"><label>Tipo de componente <span class="req">*</span></label>
+              <select id="c_tipo_componente" onchange="onTipoComponenteChange(this.value,'c_id','c_tipoapi_wrap')">${getList('TipoComponente').map(p=>`<option>${esc(p)}</option>`).join('')}</select>
+            </div>
+            <div class="field"><label>ID <span class="req">*</span></label><input id="c_id" value="${esc(sugId)}" required></div>
+            <div class="field"><label>País <span class="req">*</span></label><select id="c_pais" required>${getList('Pais').map(p=>`<option>${esc(p)}</option>`).join('')}</select></div>
+          </div>
+          <div class="form-grid g3" style="margin-top:14px;">
+            <div class="field"><label>Estado general <span class="req">*</span></label><select id="c_estado">${getList('EstadoGeneralAPI').map(p=>`<option ${p==='En Desarrollo'?'selected':''}>${esc(p)}</option>`).join('')}</select></div>
+            <div class="field" id="c_tipoapi_wrap"><label>Tipo API (capa BIAN)</label><select id="c_tipo">${getList('TipoAPI_BIAN').map(p=>`<option value="${esc(p.trim())}">${esc(p.trim())}</option>`).join('')}</select></div>
+            <div class="field"><label>Complejidad</label><select id="c_complejidad">${getList('Complejidad').map(p=>`<option ${p==='Media'?'selected':''}>${esc(p)}</option>`).join('')}</select></div>
+          </div>
+          <div class="form-grid" style="margin-top:14px;">
+            <div class="field span2"><label>Nombre <span class="req">*</span></label><input id="c_nombre" placeholder="Ej. account-servicing-business-api / checkout-svc / topic-pagos-confirmados / batch-conciliacion" required></div>
+            <div class="field span2"><label>Descripción</label><textarea id="c_desc" placeholder="¿Qué expone/hace y para qué sirve este componente?"></textarea></div>
+          </div>
+          <div class="form-grid g3" style="margin-top:14px;">
+            <div class="field"><label>Estilo de diseño</label><select id="c_estilo">${getList('ProtocoloEstilo').map(p=>`<option>${esc(p)}</option>`).join('')}</select></div>
+            <div class="field"><label>Business Area</label><input id="c_area" list="dl_area" placeholder="Ej. Risk and Compliance"></div>
+            <div class="field"><label>Business Domain</label><input id="c_domain" list="dl_domain" placeholder="Ej. Regulations and Compliance"></div>
+          </div>
+          <div class="form-grid g3" style="margin-top:14px;">
+            <div class="field"><label>Service Domain</label><input id="c_svc" list="dl_svc" placeholder="Ej. Regulatory Compliance"></div>
+            <div class="field"><label>Canal de integración</label><select id="c_canal">${getList('CanalIntegracion').map(p=>`<option>${esc(p.trim())}</option>`).join('')}</select></div>
+            <div class="field"><label>Versión actual</label><input id="c_version" value="v1.0.0"></div>
+          </div>
+          <datalist id="dl_area">${areaList.map(v=>`<option value="${esc(v)}">`).join('')}</datalist>
+          <datalist id="dl_domain">${domainList.map(v=>`<option value="${esc(v)}">`).join('')}</datalist>
+          <datalist id="dl_svc">${svcList.map(v=>`<option value="${esc(v)}">`).join('')}</datalist>
+          <div class="form-grid g3" style="margin-top:14px;">
+            <div class="field"><label>Fecha de registro</label><input id="c_fecha" type="date" value="${today}"></div>
+            <div class="field span2"><label>URL OpenAPI / documentación / contrato</label><input id="c_url" placeholder="https://…/openapi.json"></div>
+          </div>
+        </fieldset>
+
+        <fieldset class="section">
+          <legend>Gobierno y contexto de negocio (Catálogo_APIs)</legend>
+          <div class="hint" style="margin-top:-6px;margin-bottom:10px;">Existe en Catálogo BIAN, Posible Duplicado en Backlog y Estado de Gobierno ya no se autodeclaran aquí — los define la Torre de Control al validar la solicitud (ver Torre de Control → Validar Solicitudes).</div>
+          <div class="form-grid g3">
+            <div class="field"><label>Service Owner</label><input id="c_owner" placeholder="Ej. Riesgo Crediticio - Nombre Apellido"></div>
+          </div>
+          <div class="form-grid" style="margin-top:14px;">
+            <div class="field span2"><label>Caso de Uso</label><input id="c_casouso" placeholder="Iniciativa o proyecto que origina este componente"></div>
+          </div>
+          <div class="form-grid" style="margin-top:14px;">
+            <div class="field"><label>Repositorios Involucrados</label><input id="c_repos" placeholder="Ej. Topaz/Riesgos"></div>
+            <div class="field span2"><label>Excepción / Riesgo Identificado</label><input id="c_excepcion" placeholder="Ej. Excepción de comité PRECRT por hallazgos de seguridad"></div>
+          </div>
+        </fieldset>
+
+        <fieldset class="section">
+          <legend>Paso 3 · Operaciones iniciales (Catálogo_Operaciones_API)</legend>
+          ${opRowsEditor('crearOps', crearOps)}
+        </fieldset>
+
+        <fieldset class="section">
+          <legend>Paso 4 · Dependencias iniciales (Dependencias_API) — opcional</legend>
+          <div class="hint" style="margin-top:-6px;margin-bottom:10px;">De qué depende este API para funcionar. No siempre es otra API del catálogo: también puede ser un microservicio, un evento/topic o un batch — este inventario los registra a todos.</div>
+          ${depRowsEditor('crearDeps', crearDeps)}
+        </fieldset>
+
+        <fieldset class="section">
+          <legend>Paso 5 · Registro del proyecto (Histórico_Proyectos_API — Acción: Creación)</legend>
+          <div class="form-grid g3">
+            <div class="field"><label>Proyecto <span class="req">*</span></label><input id="c_proyecto" required></div>
+            <div class="field"><label>Tribu</label><input id="c_tribu" list="dl_tribu" placeholder="Ej. Riesgos - Satélite"></div>
+            <div class="field"><label>Arquitecto de Solución <span class="req">*</span></label><input id="c_arq" required></div>
+          </div>
+          <datalist id="dl_tribu">${uniqueVals(DB.hist,'Tribu').map(v=>`<option value="${esc(v)}">`).join('')}</datalist>
+          <div class="form-grid g3" style="margin-top:14px;">
+            <div class="field"><label>Consumidores</label><input id="c_consum" placeholder="Área o canal que consumirá el API"></div>
+            <div class="field"><label>PO / Líder Usuario</label><input id="c_po"></div>
+            <div class="field"><label>TTL</label><input id="c_ttl"></div>
+          </div>
+          <div class="form-grid g3" style="margin-top:14px;">
+            <div class="field"><label>Jefe de Proyecto</label><input id="c_jp"></div>
+            <div class="field"><label>Líder Técnico</label><input id="c_lt"></div>
+            <div class="field"><label>Estado actual del proyecto</label><select id="c_estadoact">${getList('EstadoActual').map(p=>`<option ${p==='Identificado'?'selected':''}>${esc(p)}</option>`).join('')}</select></div>
+          </div>
+          <div class="form-grid g3" style="margin-top:14px;">
+            <div class="field"><label>Fecha fin diseño</label><input id="c_fdiseno" placeholder="AAAA-MM-DD o TBD" value="TBD"></div>
+            <div class="field"><label>Fecha pase desarrollo</label><input id="c_fdesarrollo" placeholder="AAAA-MM-DD o TBD" value="TBD"></div>
+          </div>
+          <div class="form-grid g3" style="margin-top:14px;">
+            <div class="field"><label>Fecha pase QA</label><input id="c_fqa" placeholder="AAAA-MM-DD o TBD" value="TBD"></div>
+            <div class="field"><label>Fecha pase producción</label><input id="c_fprod" placeholder="AAAA-MM-DD o TBD" value="TBD"></div>
+            <div class="field"><label>Justificación de complejidad</label><input id="c_justcomp" placeholder="Ej. Orquesta 2 system APIs sin lógica adicional"></div>
+          </div>
+          <div class="field" style="margin-top:14px;"><label>Comentarios</label><textarea id="c_comentarios"></textarea></div>
+        </fieldset>
+
+        <div class="formbar">
+          <button type="button" class="btn ghost" onclick="setTab('dashboard')">Cancelar</button>
+          <button type="submit" class="btn gold">Registrar API</button>
+        </div>
+      </form>
+    </div>
+  `;
+}
+
+function submitCrear(ev){
+  ev.preventDefault();
+  const id = $('#c_id').value.trim();
+  if(!id){ toast('El ID es obligatorio','bad'); return false; }
+  if(findApi(id)){ toast('Ya existe un componente con ese ID. Usa Modificar o Reutilizar en su lugar.','bad'); return false; }
+  const tipoComponente = $('#c_tipo_componente').value;
+  const validOps = crearOps.filter(r=>r.path.trim()!=='');
+  if(tipoComponente==='API' && !validOps.length){ toast('Agrega al menos una operación con su Path definido.','bad'); return false; }
+
+  const apiRow = {};
+  HEADERS.apis.forEach(h=>apiRow[h]='');
+  apiRow['ID API']=id;
+  apiRow['País']=$('#c_pais').value;
+  apiRow['Nombre API']=$('#c_nombre').value.trim();
+  apiRow['Descripción']=$('#c_desc').value.trim();
+  apiRow['Tipo de Componente']=tipoComponente;
+  apiRow['Tipo API']=(tipoComponente==='API') ? $('#c_tipo').value : '';
+  apiRow['Business Area']=$('#c_area').value.trim();
+  apiRow['Business Domain']=$('#c_domain').value.trim();
+  apiRow['Service Domain']=$('#c_svc').value.trim();
+  apiRow['Complejidad']=$('#c_complejidad').value;
+  apiRow['Estilo Diseño']=$('#c_estilo').value;
+  apiRow['Canal Integración (Despliegue)']=$('#c_canal').value;
+  apiRow['URL OpenAPI (SWAGGER)']=$('#c_url').value.trim();
+  apiRow['Versión Actual']=$('#c_version').value.trim()||'v1.0.0';
+  apiRow['Fecha de Registro']=$('#c_fecha').value;
+  apiRow['Estado_General_API']=$('#c_estado').value;
+  apiRow['Service Owner']=$('#c_owner').value.trim();
+  apiRow['Caso de Uso']=$('#c_casouso').value.trim();
+  apiRow['Repositorios Involucrados']=$('#c_repos').value.trim();
+  apiRow['Excepción / Riesgo Identificado']=$('#c_excepcion').value.trim();
+  DB.apis.push(apiRow);
+
+  const opIds = [];
+  validOps.forEach(r=>{
+    const opId = nextOpId();
+    DB.ops.push({
+      'ID Operación':opId, 'ID API':id, 'Método HTTP':r.metodo, 'Path - Endpoint':r.path.trim(),
+      'Descripción Operación':r.desc.trim(), 'Versión Desde':r.version||'v1.0.0', 'Estado Operación':r.estado
+    });
+    opIds.push(opId);
+  });
+
+  const histRow = {};
+  HEADERS.hist.forEach(h=>histRow[h]='');
+  Object.assign(histRow, {
+    'ID Historial': nextHistId(),
+    'ID API': id,
+    'Proyecto': $('#c_proyecto').value.trim(),
+    'Tribu': $('#c_tribu').value.trim(),
+    'Acción': 'Creación',
+    'Operaciones (Creadas/Modificadas)': opIds.join(', '),
+    'PO/Líder Usuario': $('#c_po').value.trim(),
+    'TTL': $('#c_ttl').value.trim(),
+    'Jefe Proyecto': $('#c_jp').value.trim(),
+    'Líder Técnico': $('#c_lt').value.trim(),
+    'Arquitecto Solución': $('#c_arq').value.trim(),
+    'Consumidores': $('#c_consum').value.trim(),
+    'Fecha Registro': $('#c_fecha').value,
+    'Fecha Fin Diseño': $('#c_fdiseno').value.trim(),
+    'Fecha Pase Desarrollo': $('#c_fdesarrollo').value.trim(),
+    'Fecha Pase QA': $('#c_fqa').value.trim(),
+    'Fecha Pase Producción': $('#c_fprod').value.trim(),
+    'Quarter Publicación': computeQuarter($('#c_fprod').value.trim()),
+    'Estado_Actual': $('#c_estadoact').value,
+    'Versión_Antes': '',
+    'Versión_Después': apiRow['Versión Actual'],
+    'Breaking_Change': 'No',
+    'Complejidad': apiRow['Complejidad'],
+    'Justificación_Complejidad': $('#c_justcomp').value.trim(),
+    'Última_Modificación_Por': $('#c_arq').value.trim(),
+    'Fecha_Última_Modificación': new Date().toISOString().slice(0,10),
+    'Motivo_Modificación': 'Publicación inicial',
+    'Observaciones_Cruce': '',
+    'Comentarios': $('#c_comentarios').value.trim(),
+    'Estado de Validación': 'Registrado',
+    'Observación Torre de Control': '',
+    'Fecha Validación': ''
+  });
+  DB.hist.push(histRow);
+
+  const nDeps = pushDepRowsFor(id, apiRow['Nombre API'], crearDeps);
+
+  PENDING_BATCH.push({
+    id, nombre: apiRow['Nombre API'], tipoComponente,
+    accion: 'Creación', proyecto: histRow['Proyecto'], arquitecto: histRow['Arquitecto Solución'],
+    fecha: histRow['Fecha Registro']
+  });
+  scheduleSave();
+  toast(`${tipoComponente} ${id} registrado${opIds.length?` con ${opIds.length} operación(es)`:''}${nDeps?` y ${nDeps} dependencia(s)`:''}. Queda en tu lote local — presiona "Enviar a Torre de Control" cuando termines de cargar todos los componentes.`,'ok');
+  setTab('buscar');
+  openApiDetail(id);
+  return false;
+}
+
+/* ---------------------------------------------------------------- MODIFICAR API */
+let modificarId = null;
+let modOps = [];
+let modDeps = [];
+function apiSelectOptions(selected){
+  return DB.apis.map(a=>{
+    const nombre = (a['Nombre API']||'').trim();
+    const svc = (a['Service Domain']||'').trim();
+    let label = a['ID API'];
+    if(nombre) label += ' — '+nombre;
+    if(svc) label += (nombre? ' · ' : ' — ')+svc;
+    if(!nombre && !svc) label += ' — (sin nombre registrado)';
+    return `<option value="${esc(a['ID API'])}" ${selected===a['ID API']?'selected':''}>${esc(label)}</option>`;
+  }).join('');
+}
+function pickModificar(id){ modificarId = id; setTab('modificar'); }
+
+function viewModificar(){
+  if(prefillApi){ modificarId = prefillApi; prefillApi=null; }
+  const a = modificarId ? findApi(modificarId) : null;
+  const today = new Date().toISOString().slice(0,10);
+
+  const picker = `
+    <div class="card">
+      <h3>Selecciona el API a modificar</h3>
+      <div class="hint">Identifica el impacto antes de modificar: revisa dependencias y operaciones activas.</div>
+      <select style="width:100%;max-width:520px;" onchange="pickModificar(this.value)">
+        <option value="">— Selecciona un API —</option>
+        ${apiSelectOptions(modificarId)}
+      </select>
+    </div>`;
+
+  if(!a) return topbar('Modificar API', 'Edita los atributos vigentes del API y registra el cambio en el histórico. No se sobrescribe la trazabilidad previa.') + picker;
+
+  modOps = opsForApi(a['ID API']).map(o=>({...o, _existing:true}));
+  modDeps = [];
+  const consumidas = depsForApiAsConsumer(a['ID API']);
+  const domainList = uniqueVals(DB.apis,'Business Domain');
+  const svcList = uniqueVals(DB.apis,'Service Domain');
+
+  return `
+    ${topbar('Modificar API', 'Edita los atributos vigentes del API y registra el cambio en el histórico. No se sobrescribe la trazabilidad previa.')}
+    ${picker}
+    ${consumidas.length ? `<div class="alert warn"><span>⚠</span><div><b>Impacto potencial:</b> este API consume ${consumidas.length} dependencia(s) y puede tener consumidores propios — revisa la ficha completa antes de introducir cambios que rompan compatibilidad.</div></div>` : ''}
+
+    <div class="card">
+      <form id="modForm" onsubmit="return submitModificar(event,'${esc(a['ID API'])}')">
+        <fieldset class="section">
+          <legend>Datos actuales del API (Catálogo_APIs)</legend>
+          <div class="form-grid g3">
+            <div class="field"><label>ID API</label><input value="${esc(a['ID API'])}" readonly></div>
+            <div class="field"><label>País</label><select id="m_pais">${getList('Pais').map(p=>`<option ${a['País']===p?'selected':''}>${esc(p)}</option>`).join('')}</select></div>
+            <div class="field"><label>Estado general</label><select id="m_estado">${getList('EstadoGeneralAPI').map(p=>`<option ${a['Estado_General_API']===p?'selected':''}>${esc(p)}</option>`).join('')}</select></div>
+          </div>
+          <div class="form-grid" style="margin-top:14px;">
+            <div class="field span2"><label>Nombre API</label><input id="m_nombre" value="${esc(a['Nombre API'])}"></div>
+            <div class="field span2"><label>Descripción</label><textarea id="m_desc">${esc(a['Descripción'])}</textarea></div>
+          </div>
+          <div class="form-grid g3" style="margin-top:14px;">
+            <div class="field"><label>Tipo API</label><select id="m_tipo">${getList('TipoAPI_BIAN').map(p=>`<option value="${esc(p.trim())}" ${String(a['Tipo API']).trim()===p.trim()?'selected':''}>${esc(p.trim())}</option>`).join('')}</select></div>
+            <div class="field"><label>Complejidad</label><select id="m_complejidad">${getList('Complejidad').map(p=>`<option ${a['Complejidad']===p?'selected':''}>${esc(p)}</option>`).join('')}</select></div>
+            <div class="field"><label>Estilo de diseño</label><select id="m_estilo">${getList('ProtocoloEstilo').map(p=>`<option ${a['Estilo Diseño']===p?'selected':''}>${esc(p)}</option>`).join('')}</select></div>
+          </div>
+          <div class="form-grid g3" style="margin-top:14px;">
+            <div class="field"><label>Business Area</label><input id="m_area" value="${esc(a['Business Area'])}"></div>
+            <div class="field"><label>Business Domain</label><input id="m_domain" list="dl_domain_m" value="${esc(a['Business Domain'])}"></div>
+            <div class="field"><label>Service Domain</label><input id="m_svc" list="dl_svc_m" value="${esc(a['Service Domain'])}"></div>
+          </div>
+          <datalist id="dl_domain_m">${domainList.map(v=>`<option value="${esc(v)}">`).join('')}</datalist>
+          <datalist id="dl_svc_m">${svcList.map(v=>`<option value="${esc(v)}">`).join('')}</datalist>
+          <div class="form-grid g3" style="margin-top:14px;">
+            <div class="field"><label>Canal de integración</label><select id="m_canal">${getList('CanalIntegracion').map(p=>`<option ${String(a['Canal Integración (Despliegue)']).trim()===p.trim()?'selected':''}>${esc(p.trim())}</option>`).join('')}</select></div>
+            <div class="field"><label>Versión actual (nueva)</label><input id="m_version" value="${esc(a['Versión Actual'])}"></div>
+            <div class="field"><label>URL OpenAPI</label><input id="m_url" value="${esc(a['URL OpenAPI (SWAGGER)'])}"></div>
+          </div>
+        </fieldset>
+
+        <fieldset class="section">
+          <legend>Gobierno y contexto de negocio (Catálogo_APIs)</legend>
+          <div class="hint" style="margin-top:-6px;margin-bottom:10px;">Existe en Catálogo BIAN, Posible Duplicado en Backlog y Estado de Gobierno ya no se editan aquí — los define la Torre de Control al validar la solicitud.</div>
+          <div class="form-grid g3">
+            <div class="field"><label>Service Owner</label><input id="m_owner" value="${esc(a['Service Owner'])}"></div>
+          </div>
+          <div class="form-grid" style="margin-top:14px;">
+            <div class="field span2"><label>Caso de Uso</label><input id="m_casouso" value="${esc(a['Caso de Uso'])}"></div>
+          </div>
+          <div class="form-grid" style="margin-top:14px;">
+            <div class="field"><label>Repositorios Involucrados</label><input id="m_repos" value="${esc(a['Repositorios Involucrados'])}"></div>
+            <div class="field span2"><label>Excepción / Riesgo Identificado</label><input id="m_excepcion" value="${esc(a['Excepción / Riesgo Identificado'])}"></div>
+          </div>
+        </fieldset>
+
+        <fieldset class="section">
+          <legend>Operaciones (agrega o ajusta estado — Catálogo_Operaciones_API)</legend>
+          ${opRowsEditorExisting()}
+        </fieldset>
+
+        <fieldset class="section">
+          <legend>Dependencias existentes (${consumidas.length})</legend>
+          ${consumidas.length ? `<div class="tag-list">${consumidas.map(d=>`<span class="tag">${esc(d['Tipo_Artefacto_Consumido'])||'Componente del Catálogo'}: ${d['ID_API_Consumida']?esc(d['ID_API_Consumida'])+' — ':''}${esc(d['Nombre_API_Consumida'])} ${badgeForRiesgoCriticidad(d['Criticidad'])}</span>`).join('')}</div>` : `<div class="hint">Este API todavía no tiene dependencias registradas.</div>`}
+          <div class="hint" style="margin-top:10px;">Para corregir o eliminar una dependencia existente, usa <b>Gobierno → Registrar Dependencias</b>. Aquí solo se agregan dependencias nuevas.</div>
+          <div class="section-title" style="margin-top:16px;">Agregar nueva dependencia — opcional</div>
+          ${depRowsEditor('modDeps', modDeps)}
+        </fieldset>
+
+        <fieldset class="section">
+          <legend>Registro del cambio (Histórico_Proyectos_API)</legend>
+          <div class="form-grid g3">
+            <div class="field"><label>Proyecto <span class="req">*</span></label><input id="m_proyecto" required></div>
+            <div class="field"><label>Tribu</label><input id="m_tribu" list="dl_tribu_m" placeholder="Ej. Riesgos - Satélite"></div>
+            <div class="field"><label>Arquitecto de Solución <span class="req">*</span></label><input id="m_arq" required></div>
+          </div>
+          <datalist id="dl_tribu_m">${uniqueVals(DB.hist,'Tribu').map(v=>`<option value="${esc(v)}">`).join('')}</datalist>
+          <div class="form-grid g3" style="margin-top:14px;">
+            <div class="field"><label>PO / Líder Usuario</label><input id="m_po"></div>
+            <div class="field"><label>TTL</label><input id="m_ttl"></div>
+            <div class="field"><label>Jefe de Proyecto</label><input id="m_jp"></div>
+          </div>
+          <div class="form-grid g3" style="margin-top:14px;">
+            <div class="field"><label>Líder Técnico</label><input id="m_lt"></div>
+            <div class="field"><label>Versión antes</label><input value="${esc(a['Versión Actual'])}" readonly></div>
+            <div class="field"><label>Breaking change <span class="req">*</span></label><select id="m_breaking">${getList('BreakingChange').map(p=>`<option>${esc(p)}</option>`).join('')}</select></div>
+          </div>
+          <div class="form-grid g3" style="margin-top:14px;">
+            <div class="field"><label>Acción a registrar <span class="req">*</span></label>
+              <select id="m_accion">
+                <option value="Modificación" selected>Modificación</option>
+                <option value="Creación">Creación</option>
+              </select>
+              <span class="fhint">Por defecto queda como Modificación. Cámbialo a Creación solo si esto corresponde a un registro de creación (a pedido).</span>
+            </div>
+            <div class="field"><label>Estado actual del proyecto</label><select id="m_estadoact">${getList('EstadoActual').map(p=>`<option ${p==='Diseño'?'selected':''}>${esc(p)}</option>`).join('')}</select></div>
+            <div class="field"><label>Consumidores</label><input id="m_consum"></div>
+          </div>
+          <div class="form-grid" style="margin-top:14px;">
+            <div class="field"><label>Motivo de la modificación <span class="req">*</span></label><input id="m_motivo" required></div>
+            <div class="field"><label>Justificación de complejidad</label><input id="m_justcomp"></div>
+          </div>
+          <div class="form-grid g3" style="margin-top:14px;">
+            <div class="field"><label>Fecha de registro</label><input id="m_fecha" type="date" value="${today}"></div>
+            <div class="field"><label>Fecha pase producción</label><input id="m_fprod" placeholder="AAAA-MM-DD o TBD" value="TBD"></div>
+          </div>
+          <div class="field" style="margin-top:14px;"><label>Comentarios</label><textarea id="m_comentarios"></textarea></div>
+        </fieldset>
+
+        <div class="formbar">
+          <button type="button" class="btn ghost" onclick="setTab('dashboard')">Cancelar</button>
+          <button type="submit" class="btn gold">Guardar modificación</button>
+        </div>
+      </form>
+    </div>
+  `;
+}
+function opRowsEditorExisting(){
+  return `
+    <div class="subtable-head"><span>Método</span><span>Path / Endpoint</span><span>Descripción</span><span>Versión desde</span><span>Estado</span><span></span></div>
+    <div id="modOpsRows">${modOpsRowsHtml()}</div>
+    <button type="button" class="btn small ghost" onclick="addModOpRow()">+ Agregar operación nueva</button>
+  `;
+}
+function modOpsRowsHtml(){
+  return modOps.map((r,i)=>`
+    <div class="subtable-row">
+      <select onchange="modOps[${i}]['Método HTTP']=this.value">${getList('MetodoHTTP').map(m=>`<option ${r['Método HTTP']===m?'selected':''}>${m}</option>`).join('')}</select>
+      <input value="${esc(r['Path - Endpoint'])}" oninput="modOps[${i}]['Path - Endpoint']=this.value" placeholder="/v1/recurso/{id}">
+      <input value="${esc(r['Descripción Operación'])}" oninput="modOps[${i}]['Descripción Operación']=this.value">
+      <input value="${esc(r['Versión Desde']||'v1.0.0')}" oninput="modOps[${i}]['Versión Desde']=this.value">
+      <select onchange="modOps[${i}]['Estado Operación']=this.value">${getList('EstadoOperacion').map(m=>`<option ${r['Estado Operación']===m?'selected':''}>${m}</option>`).join('')}</select>
+      <button type="button" class="iconbtn" onclick="removeModOpRow(${i})" title="Quitar">✕</button>
+    </div>`).join('') || '<div class="empty-state">Sin operaciones.</div>';
+}
+function addModOpRow(){
+  modOps.push({'ID Operación':'', 'ID API':modificarId, 'Método HTTP':'GET', 'Path - Endpoint':'', 'Descripción Operación':'', 'Versión Desde':'v1.0.0', 'Estado Operación':'Activa'});
+  document.getElementById('modOpsRows').innerHTML = modOpsRowsHtml();
+}
+function removeModOpRow(i){ modOps.splice(i,1); document.getElementById('modOpsRows').innerHTML = modOpsRowsHtml(); }
+
+function submitModificar(ev, id){
+  ev.preventDefault();
+  const a = findApi(id);
+  const versionAntes = a['Versión Actual'];
+  a['País']=$('#m_pais').value; a['Nombre API']=$('#m_nombre').value.trim(); a['Descripción']=$('#m_desc').value.trim();
+  a['Tipo API']=$('#m_tipo').value; a['Complejidad']=$('#m_complejidad').value; a['Estilo Diseño']=$('#m_estilo').value;
+  a['Business Area']=$('#m_area').value.trim(); a['Business Domain']=$('#m_domain').value.trim(); a['Service Domain']=$('#m_svc').value.trim();
+  a['Canal Integración (Despliegue)']=$('#m_canal').value; a['Versión Actual']=$('#m_version').value.trim();
+  a['URL OpenAPI (SWAGGER)']=$('#m_url').value.trim(); a['Estado_General_API']=$('#m_estado').value;
+  a['Service Owner']=$('#m_owner').value.trim();
+  a['Caso de Uso']=$('#m_casouso').value.trim();
+  a['Repositorios Involucrados']=$('#m_repos').value.trim();
+  a['Excepción / Riesgo Identificado']=$('#m_excepcion').value.trim();
+
+  const opIds = [];
+  modOps.forEach(r=>{
+    if(!r['Path - Endpoint'] || !r['Path - Endpoint'].trim()) return;
+    if(!r['ID Operación']){
+      r['ID Operación'] = nextOpId();
+      r['ID API'] = id;
+      DB.ops.push({...r});
+    } else {
+      const existing = DB.ops.find(o=>o['ID Operación']===r['ID Operación']);
+      if(existing) Object.assign(existing, r);
+    }
+    opIds.push(r['ID Operación']);
+  });
+
+  const histRow = {};
+  HEADERS.hist.forEach(h=>histRow[h]='');
+  Object.assign(histRow, {
+    'ID Historial': nextHistId(), 'ID API': id, 'Proyecto': $('#m_proyecto').value.trim(), 'Tribu': $('#m_tribu').value.trim(), 'Acción': $('#m_accion').value,
+    'Operaciones (Creadas/Modificadas)': opIds.join(', '),
+    'PO/Líder Usuario': $('#m_po').value.trim(), 'TTL': $('#m_ttl').value.trim(), 'Jefe Proyecto': $('#m_jp').value.trim(), 'Líder Técnico': $('#m_lt').value.trim(),
+    'Arquitecto Solución': $('#m_arq').value.trim(), 'Consumidores': $('#m_consum').value.trim(),
+    'Fecha Registro': $('#m_fecha').value, 'Fecha Pase Producción': $('#m_fprod').value.trim(),
+    'Quarter Publicación': computeQuarter($('#m_fprod').value.trim()),
+    'Fecha Fin Diseño':'TBD','Fecha Pase Desarrollo':'TBD','Fecha Pase QA':'TBD',
+    'Estado_Actual': $('#m_estadoact').value, 'Versión_Antes': versionAntes, 'Versión_Después': a['Versión Actual'],
+    'Breaking_Change': $('#m_breaking').value, 'Complejidad': a['Complejidad'], 'Justificación_Complejidad': $('#m_justcomp').value.trim(),
+    'Última_Modificación_Por': $('#m_arq').value.trim(), 'Fecha_Última_Modificación': new Date().toISOString().slice(0,10),
+    'Motivo_Modificación': $('#m_motivo').value.trim(),
+    'Observaciones_Cruce': '', 'Comentarios': $('#m_comentarios').value.trim(),
+    'Estado de Validación': 'Registrado', 'Observación Torre de Control': '', 'Fecha Validación': ''
+  });
+  DB.hist.push(histRow);
+
+  const nDeps = pushDepRowsFor(id, a['Nombre API'], modDeps);
+
+  PENDING_BATCH.push({
+    id, nombre: a['Nombre API'], tipoComponente: tipoComponenteOf(a),
+    accion: histRow['Acción'], proyecto: histRow['Proyecto'], arquitecto: histRow['Arquitecto Solución'],
+    fecha: histRow['Fecha Registro']
+  });
+  scheduleSave();
+  toast(`API ${id} actualizada (v${versionAntes} → v${a['Versión Actual']})${nDeps?` con ${nDeps} dependencia(s) nueva(s)`:''}. Queda en tu lote local — presiona "Enviar a Torre de Control" cuando termines.`,'ok');
+  modificarId = null;
+  setTab('buscar');
+  openApiDetail(id);
+  return false;
+}
+
+/* ---------------------------------------------------------------- REUTILIZAR API */
+let reutilizarId = null;
+function pickReutilizar(id){ reutilizarId = id; setTab('reutilizar'); }
+function viewReutilizar(){
+  if(prefillApi){ reutilizarId = prefillApi; prefillApi=null; }
+  const a = reutilizarId ? findApi(reutilizarId) : null;
+  const today = new Date().toISOString().slice(0,10);
+  const picker = `
+    <div class="card">
+      <h3>Selecciona el API a reutilizar</h3>
+      <div class="hint">La reutilización no modifica el Catálogo ni las Operaciones — solo registra la nueva interacción de proyecto.</div>
+      <select style="width:100%;max-width:520px;" onchange="pickReutilizar(this.value)">
+        <option value="">— Selecciona un API —</option>
+        ${apiSelectOptions(reutilizarId)}
+      </select>
+    </div>`;
+  if(!a) return topbar('Reutilizar API', 'Consume un API existente sin duplicar esfuerzo. Ideal cuando el contrato actual ya cubre la necesidad del proyecto.') + picker;
+
+  const ops = opsForApi(a['ID API']);
+  return `
+    ${topbar('Reutilizar API', 'Consume un API existente sin duplicar esfuerzo. Ideal cuando el contrato actual ya cubre la necesidad del proyecto.')}
+    ${picker}
+    <div class="card">
+      <h3>${esc(a['Nombre API'])} <code class="idtag">${esc(a['ID API'])}</code> ${badgeForEstadoApi(a['Estado_General_API'])}</h3>
+      <p class="hint">${esc(a['Descripción'])}</p>
+      <div class="tag-list">${ops.map(o=>`<span class="tag">${esc(o['Método HTTP'])} ${esc(o['Path - Endpoint'])}</span>`).join('') || '<span class="hint">Sin operaciones registradas — considera Modificar en vez de Reutilizar.</span>'}</div>
+    </div>
+    <div class="card">
+      <form id="reutForm" onsubmit="return submitReutilizar(event,'${esc(a['ID API'])}')">
+        <fieldset class="section">
+          <legend>Registro del proyecto (Histórico_Proyectos_API — Acción: Reutilización)</legend>
+          <div class="form-grid g3">
+            <div class="field"><label>Proyecto <span class="req">*</span></label><input id="r_proyecto" required></div>
+            <div class="field"><label>Tribu</label><input id="r_tribu" list="dl_tribu_r" placeholder="Ej. Riesgos - Satélite"></div>
+            <div class="field"><label>Arquitecto de Solución <span class="req">*</span></label><input id="r_arq" required></div>
+          </div>
+          <datalist id="dl_tribu_r">${uniqueVals(DB.hist,'Tribu').map(v=>`<option value="${esc(v)}">`).join('')}</datalist>
+          <div class="form-grid g3" style="margin-top:14px;">
+            <div class="field"><label>Consumidores</label><input id="r_consum"></div>
+            <div class="field"><label>PO / Líder Usuario</label><input id="r_po"></div>
+            <div class="field"><label>TTL</label><input id="r_ttl"></div>
+          </div>
+          <div class="form-grid g3" style="margin-top:14px;">
+            <div class="field"><label>Jefe de Proyecto</label><input id="r_jp"></div>
+            <div class="field"><label>Líder Técnico</label><input id="r_lt"></div>
+            <div class="field"><label>Estado actual del proyecto</label><select id="r_estadoact">${getList('EstadoActual').map(p=>`<option>${esc(p)}</option>`).join('')}</select></div>
+          </div>
+          <div class="form-grid g3" style="margin-top:14px;">
+            <div class="field"><label>Fecha de registro</label><input id="r_fecha" type="date" value="${today}"></div>
+            <div class="field"><label>Fecha pase producción</label><input id="r_fprod" placeholder="AAAA-MM-DD o TBD" value="TBD"></div>
+          </div>
+          <div class="field" style="margin-top:14px;"><label>Comentarios</label><textarea id="r_comentarios" placeholder="Sin cambios de contrato — solo consumo."></textarea></div>
+        </fieldset>
+        <div class="formbar">
+          <button type="button" class="btn ghost" onclick="setTab('dashboard')">Cancelar</button>
+          <button type="submit" class="btn gold">Registrar reutilización</button>
+        </div>
+      </form>
+    </div>
+  `;
+}
+function submitReutilizar(ev, id){
+  ev.preventDefault();
+  const a = findApi(id);
+  const histRow = {};
+  HEADERS.hist.forEach(h=>histRow[h]='');
+  Object.assign(histRow, {
+    'ID Historial': nextHistId(), 'ID API': id, 'Proyecto': $('#r_proyecto').value.trim(), 'Tribu': $('#r_tribu').value.trim(), 'Acción': 'Reutilización',
+    'PO/Líder Usuario': $('#r_po').value.trim(), 'TTL': $('#r_ttl').value.trim(), 'Jefe Proyecto': $('#r_jp').value.trim(), 'Líder Técnico': $('#r_lt').value.trim(),
+    'Arquitecto Solución': $('#r_arq').value.trim(), 'Consumidores': $('#r_consum').value.trim(),
+    'Fecha Registro': $('#r_fecha').value, 'Fecha Pase Producción': $('#r_fprod').value.trim(),
+    'Quarter Publicación': computeQuarter($('#r_fprod').value.trim()),
+    'Fecha Fin Diseño':'TBD','Fecha Pase Desarrollo':'TBD','Fecha Pase QA':'TBD',
+    'Estado_Actual': $('#r_estadoact').value, 'Versión_Antes': a['Versión Actual'], 'Versión_Después': a['Versión Actual'],
+    'Breaking_Change': 'No', 'Complejidad': a['Complejidad'],
+    'Última_Modificación_Por': $('#r_arq').value.trim(), 'Fecha_Última_Modificación': new Date().toISOString().slice(0,10),
+    'Motivo_Modificación': 'Reutilización',
+    'Comentarios': $('#r_comentarios').value.trim(),
+    'Estado de Validación': 'Registrado', 'Observación Torre de Control': '', 'Fecha Validación': ''
+  });
+  DB.hist.push(histRow);
+  PENDING_BATCH.push({
+    id, nombre: a['Nombre API'], tipoComponente: tipoComponenteOf(a),
+    accion: 'Reutilización', proyecto: histRow['Proyecto'], arquitecto: histRow['Arquitecto Solución'],
+    fecha: histRow['Fecha Registro']
+  });
+  scheduleSave();
+  toast(`Reutilización de ${id} registrada. Queda en tu lote local — presiona "Enviar a Torre de Control" cuando termines.`,'ok');
+  reutilizarId = null;
+  setTab('buscar');
+  openApiDetail(id);
+  return false;
+}
+
+/* ---------------------------------------------------------------- REGISTRAR OPERACIONES (standalone) */
+let opsFormId = null;
+var standaloneOps = [];
+function pickOpsApi(id){ opsFormId = id; standaloneOps = [{id:uid(), metodo:'GET', path:'', desc:'', version:'v1.0.0', estado:'Activa'}]; setTab('operaciones'); }
+function viewOperaciones(){
+  const a = opsFormId ? findApi(opsFormId) : null;
+  const picker = `
+    <div class="card">
+      <h3>Selecciona el API</h3>
+      <select style="width:100%;max-width:520px;" onchange="pickOpsApi(this.value)">
+        <option value="">— Selecciona un API —</option>
+        ${apiSelectOptions(opsFormId)}
+      </select>
+    </div>`;
+  if(!a) return topbar('Registrar Operaciones (corrección)', 'Las operaciones normalmente se registran al Crear o Modificar el API. Usa esta pantalla de Gobierno solo para agregar o corregir operaciones después, sin pasar por un flujo completo de Modificación.') + picker;
+  const existing = opsForApi(a['ID API']);
+  return `
+    ${topbar('Registrar Operaciones (corrección)', 'Las operaciones normalmente se registran al Crear o Modificar el API. Usa esta pantalla de Gobierno solo para agregar o corregir operaciones después, sin pasar por un flujo completo de Modificación.')}
+    ${picker}
+    <div class="card">
+      <h3>Operaciones existentes de ${esc(a['Nombre API'])}</h3>
+      <div class="table-wrap"><table><thead><tr><th>ID</th><th>Método</th><th>Path</th><th>Estado</th></tr></thead><tbody>
+        ${existing.map(o=>`<tr><td><code class="idtag">${esc(o['ID Operación'])}</code></td><td>${esc(o['Método HTTP'])}</td><td class="wrap">${esc(o['Path - Endpoint'])}</td><td>${o['Estado Operación']==='Activa'?'<span class="badge ok">Activa</span>':'<span class="badge bad">Deprecada</span>'}</td></tr>`).join('') || `<tr><td colspan="4" class="empty-state">Sin operaciones registradas aún.</td></tr>`}
+      </tbody></table></div>
+    </div>
+    <div class="card">
+      <form onsubmit="return submitOps(event,'${esc(a['ID API'])}')">
+        <fieldset class="section">
+          <legend>Nuevas operaciones a registrar</legend>
+          ${opRowsEditor('standaloneOps', standaloneOps)}
+        </fieldset>
+        <div class="formbar">
+          <button type="button" class="btn ghost" onclick="setTab('dashboard')">Cancelar</button>
+          <button type="submit" class="btn gold">Guardar operaciones</button>
+        </div>
+      </form>
+    </div>
+  `;
+}
+function submitOps(ev, id){
+  ev.preventDefault();
+  const valid = standaloneOps.filter(r=>r.path.trim()!=='');
+  if(!valid.length){ toast('Agrega al menos una operación con Path definido.','bad'); return false; }
+  valid.forEach(r=>{
+    DB.ops.push({'ID Operación':nextOpId(),'ID API':id,'Método HTTP':r.metodo,'Path - Endpoint':r.path.trim(),'Descripción Operación':r.desc.trim(),'Versión Desde':r.version||'v1.0.0','Estado Operación':r.estado});
+  });
+  scheduleSave();
+  toast(`${valid.length} operación(es) registradas para ${id}.`,'ok');
+  standaloneOps = [{id:uid(), metodo:'GET', path:'', desc:'', version:'v1.0.0', estado:'Activa'}];
+  setTab('operaciones');
+  return false;
+}
+
+/* ---------------------------------------------------------------- REGISTRAR DEPENDENCIAS */
+let depStandaloneTipo = 'Componente del Catálogo';
+function viewDependencias(){
+  const rows = DB.deps;
+  return `
+    ${topbar('Registrar Dependencias (corrección)', 'Normalmente una dependencia se registra al Crear o Modificar el API consumidor. Usa esta pantalla de Gobierno solo para agregar o corregir una dependencia después. No siempre la consumida es otra API del catálogo: puede ser un microservicio, un evento/topic o un batch.')}
+    <div class="card">
+      <form onsubmit="return submitDep(event)">
+        <div class="form-grid g3">
+          <div class="field"><label>API consumidor <span class="req">*</span></label>
+            <select id="d_consumidor" required><option value="">—</option>${apiSelectOptions('')}</select>
+          </div>
+          <div class="field"><label>Tipo de artefacto consumido <span class="req">*</span></label>
+            <select id="d_tipo_artefacto" onchange="depStandaloneTipo=this.value; renderApp();">${getList('TipoArtefactoConsumido').map(p=>`<option ${depStandaloneTipo===p?'selected':''}>${esc(p)}</option>`).join('')}</select>
+          </div>
+          ${depStandaloneTipo==='Componente del Catálogo' ? `
+          <div class="field"><label>API consumida <span class="req">*</span></label>
+            <select id="d_consumida_api" required><option value="">—</option>${apiSelectOptions('')}</select>
+          </div>` : `
+          <div class="field"><label>Nombre del artefacto consumido <span class="req">*</span></label>
+            <input id="d_consumida_nombre" required placeholder="Ej. checkout-svc / topic-pagos-confirmados / batch-conciliacion-nocturna">
+          </div>`}
+        </div>
+        <div class="form-grid g3" style="margin-top:14px;">
+          <div class="field"><label>Tipo de dependencia</label><select id="d_tipo">${getList('TipoDependencia').map(p=>`<option>${esc(p)}</option>`).join('')}</select></div>
+          <div class="field"><label>Criticidad</label><select id="d_criticidad">${getList('Criticidad').map(p=>`<option ${p==='Media'?'selected':''}>${esc(p)}</option>`).join('')}</select></div>
+          <div class="field"><label>Comentarios</label><input id="d_comentarios" placeholder="Ej. Business API orquesta System API de depósitos."></div>
+        </div>
+        <div class="formbar"><button type="submit" class="btn gold">Registrar dependencia</button></div>
+      </form>
+    </div>
+    <div class="card">
+      <h3>Dependencias registradas (${rows.length})</h3>
+      <div class="table-wrap"><table>
+        <thead><tr><th>Consumidor</th><th>Tipo artefacto</th><th>Consumida</th><th>Tipo</th><th>Criticidad</th><th>Comentarios</th></tr></thead>
+        <tbody>${rows.map(d=>`<tr>
+          <td><code class="idtag">${esc(d['ID_API_Consumidor'])}</code> ${esc(d['Nombre_API_Consumidor'])}</td>
+          <td>${esc(d['Tipo_Artefacto_Consumido'])||'Componente del Catálogo'}</td>
+          <td>${d['ID_API_Consumida']?`<code class="idtag">${esc(d['ID_API_Consumida'])}</code> `:''}${esc(d['Nombre_API_Consumida'])}</td>
+          <td>${esc(d['Tipo_Dependencia'])}</td>
+          <td>${badgeForRiesgoCriticidad(d['Criticidad'])}</td>
+          <td class="wrap">${esc(d['Comentarios'])}</td>
+        </tr>`).join('') || `<tr><td colspan="6" class="empty-state">Sin dependencias registradas.</td></tr>`}</tbody>
+      </table></div>
+    </div>
+  `;
+}
+function badgeForRiesgoCriticidad(v){
+  const map = {'Crítica':'bad','Alta':'warn','Media':'info','Baja':'neutral'};
+  return `<span class="badge ${map[v]||'neutral'}">${esc(v||'—')}</span>`;
+}
+function submitDep(ev){
+  ev.preventDefault();
+  const cId = $('#d_consumidor').value;
+  if(!cId){ toast('Selecciona el API consumidor.','bad'); return false; }
+  const tipoArtefacto = $('#d_tipo_artefacto').value;
+  let pId = '', pNombre = '';
+  if(tipoArtefacto==='Componente del Catálogo'){
+    pId = $('#d_consumida_api').value;
+    if(!pId){ toast('Selecciona el API consumida.','bad'); return false; }
+    if(cId===pId){ toast('Un API no puede depender de sí mismo.','bad'); return false; }
+    const pApi = findApi(pId);
+    pNombre = pApi?pApi['Nombre API']:'';
+  } else {
+    pNombre = $('#d_consumida_nombre').value.trim();
+    if(!pNombre){ toast('Escribe el nombre del artefacto consumido.','bad'); return false; }
+  }
+  const cApi = findApi(cId);
+  DB.deps.push({
+    'ID_API_Consumidor':cId, 'Nombre_API_Consumidor':cApi?cApi['Nombre API']:'',
+    'Tipo_Artefacto_Consumido':tipoArtefacto,
+    'ID_API_Consumida':pId, 'Nombre_API_Consumida':pNombre,
+    'Tipo_Dependencia':$('#d_tipo').value, 'Criticidad':$('#d_criticidad').value, 'Comentarios':$('#d_comentarios').value.trim()
+  });
+  scheduleSave();
+  toast('Dependencia registrada.','ok');
+  depStandaloneTipo = 'Componente del Catálogo';
+  setTab('dependencias');
+  return false;
+}
+
+/* ---------------------------------------------------------------- CONSULTAR HISTORIAL */
+let historialApi = '';
+function viewHistorial(){
+  const a = historialApi ? findApi(historialApi) : null;
+  const h = a ? histForApi(a['ID API']) : [];
+  return `
+    ${topbar('Consultar Historial', 'Trazabilidad completa de un API: quién la creó, quién la modificó y quién la reutilizó, en orden cronológico.')}
+    <div class="card">
+      <div class="search-row">
+        <select style="max-width:520px;flex:1;" onchange="historialApi=this.value; renderApp();">
+          <option value="">— Selecciona un API —</option>
+          ${apiSelectOptions(historialApi)}
+        </select>
+      </div>
+      ${a ? `
+        <h3>${esc(a['Nombre API'])} <code class="idtag">${esc(a['ID API'])}</code></h3>
+        <div class="hint">${h.length} registro(s) de histórico · creado por <b>${esc(creatorRowFor(a['ID API'])?.['Arquitecto Solución']||'—')}</b></div>
+        <div class="table-wrap"><table>
+          <thead><tr><th>Fecha</th><th>Proyecto</th><th>Tribu</th><th>Acción</th><th>Arquitecto</th><th>PO/Líder Usuario</th><th>TTL</th><th>Jefe Proyecto</th><th>Líder Técnico</th><th>Versión</th><th>Estado</th><th class="wrap">Etapas (Plan·Dis·Dev·QA·Prod)</th><th>Comentarios</th></tr></thead>
+          <tbody>${h.map(r=>`<tr>
+            <td>${esc(fmtDate(r['Fecha Registro']))}</td>
+            <td class="wrap">${esc(r['Proyecto'])}</td>
+            <td class="wrap">${esc(r['Tribu'])}</td>
+            <td>${badgeForAccion(r['Acción'])}</td>
+            <td class="wrap">${esc(r['Arquitecto Solución'])}</td>
+            <td class="wrap">${esc(r['PO/Líder Usuario'])}</td>
+            <td class="wrap">${esc(r['TTL'])}</td>
+            <td class="wrap">${esc(r['Jefe Proyecto'])}</td>
+            <td class="wrap">${esc(r['Líder Técnico'])}</td>
+            <td>${esc(r['Versión_Antes'])? esc(r['Versión_Antes'])+' → ':''}${esc(r['Versión_Después'])}</td>
+            <td>${badgeForEstadoActual(r['Estado_Actual'])}</td>
+            <td class="wrap">${etapasResumen(r)}</td>
+            <td class="wrap">${esc(r['Comentarios'])}</td>
+          </tr>`).join('') || `<tr><td colspan="13" class="empty-state">Sin registros.</td></tr>`}</tbody>
+        </table></div>
+      ` : `<div class="empty-state" style="padding-top:40px;">Selecciona un API para ver su línea de tiempo completa.</div>`}
+    </div>
+  `;
+}
+
+/* ---------------------------------------------------------------- ACTUALIZAR ESTADO / FECHAS DE PROYECTO */
+let estadoState = {q:'', proyecto:'', histId:''};
+function pickEstadoProyecto(p){ estadoState.proyecto = p; estadoState.histId=''; renderApp(); }
+function pickEstadoHist(id){ estadoState.histId = id; renderApp(); }
+function resetEstadoProyecto(){ estadoState = {q:'', proyecto:'', histId:''}; renderApp(); }
+function viewEstado(){
+  const s = estadoState;
+
+  // Paso 1: buscar y elegir el PROYECTO (en vez de un combobox gigante con todo mezclado)
+  if(!s.proyecto){
+    let proyectos = uniqueVals(DB.hist,'Proyecto');
+    if(s.q){
+      const q = s.q.toLowerCase();
+      proyectos = proyectos.filter(p=>p.toLowerCase().includes(q));
+    }
+    const infoPorProyecto = {};
+    DB.hist.forEach(h=>{
+      if(!h['Proyecto']) return;
+      const info = infoPorProyecto[h['Proyecto']] = infoPorProyecto[h['Proyecto']] || {n:0, ultima:''};
+      info.n++;
+      if(String(h['Fecha Registro']||'') > info.ultima) info.ultima = h['Fecha Registro']||'';
+    });
+    return `
+      ${topbar('Actualizar Estado y Fechas de Proyecto', 'Paso 1: busca y selecciona el proyecto. Paso 2: elige qué registro de histórico de ese proyecto quieres actualizar.')}
+      <div class="card">
+        <h3>Paso 1 · Busca el proyecto</h3>
+        <div class="search-row">
+          <input type="search" id="estadoProySearch" placeholder="Escribe el nombre del proyecto…" value="${esc(s.q)}" oninput="estadoState.q=this.value; reRenderKeepingFocus('estadoProySearch');">
+        </div>
+        <div class="table-wrap"><table>
+          <thead><tr><th>Proyecto</th><th>Registros de histórico</th><th>Última actividad</th><th></th></tr></thead>
+          <tbody>
+            ${proyectos.map(p=>{
+              const info = infoPorProyecto[p]||{n:0,ultima:''};
+              return `<tr>
+                <td class="wrap">${esc(p)}</td>
+                <td>${info.n}</td>
+                <td>${esc(fmtDate(info.ultima))||'—'}</td>
+                <td><button class="rowbtn" onclick="pickEstadoProyecto('${esc(p)}')">Seleccionar ›</button></td>
+              </tr>`;
+            }).join('') || `<tr><td colspan="4" class="empty-state">Ningún proyecto coincide con tu búsqueda.</td></tr>`}
+          </tbody>
+        </table></div>
+      </div>
+    `;
+  }
+
+  // Paso 2: elegir QUÉ registro de histórico de ese proyecto se va a actualizar
+  const registros = DB.hist.filter(h=>h['Proyecto']===s.proyecto);
+  const row = s.histId ? DB.hist.find(h=>h['ID Historial']===s.histId) : null;
+
+  const pasoProyecto = `
+    <div class="card">
+      <div class="stepline"><b>Proyecto:</b> ${esc(s.proyecto)} &nbsp;<button class="btn small ghost" onclick="resetEstadoProyecto()">Cambiar proyecto</button></div>
+      ${!row ? `
+      <h3>Paso 2 · Selecciona el registro de histórico a actualizar</h3>
+      <div class="table-wrap"><table>
+        <thead><tr><th>ID API</th><th>Nombre API</th><th>Acción</th><th>Estado actual</th><th>Fecha registro</th><th></th></tr></thead>
+        <tbody>
+          ${registros.map(h=>{
+            const a = findApi(h['ID API']);
+            return `<tr>
+              <td><code class="idtag">${esc(h['ID API'])}</code></td>
+              <td class="wrap">${a?esc(a['Nombre API']):'—'}</td>
+              <td>${badgeForAccion(h['Acción'])}</td>
+              <td>${badgeForEstadoActual(h['Estado_Actual'])}</td>
+              <td>${esc(fmtDate(h['Fecha Registro']))}</td>
+              <td><button class="rowbtn" onclick="pickEstadoHist('${esc(h['ID Historial'])}')">Seleccionar ›</button></td>
+            </tr>`;
+          }).join('') || `<tr><td colspan="6" class="empty-state">Este proyecto no tiene registros de histórico.</td></tr>`}
+        </tbody>
+      </table></div>
+      ` : ''}
+    </div>
+  `;
+
+  if(!row) return topbar('Actualizar Estado y Fechas de Proyecto', 'Paso 1: busca y selecciona el proyecto. Paso 2: elige qué registro de histórico de ese proyecto quieres actualizar.') + pasoProyecto;
+
+  const api = findApi(row['ID API']);
+  if(api){ modOps = opsForApi(row['ID API']).map(o=>({...o})); }
+  const etapasHabilitadas = row['Estado de Validación']==='Publicado';
+  const domainListE = uniqueVals(DB.apis,'Business Domain');
+  const svcListE = uniqueVals(DB.apis,'Service Domain');
+
+  return `
+    ${topbar('Actualizar Estado y Fechas de Proyecto', 'Paso 1: busca y selecciona el proyecto. Paso 2: elige qué registro de histórico de ese proyecto quieres actualizar.')}
+    ${pasoProyecto}
+    <div class="card">
+      <div class="tag-list" style="margin-bottom:10px;">
+        <span class="tag">${esc(row['ID API'])}</span>
+        <span class="tag">${esc(row['Proyecto'])}</span>
+        ${badgeForAccion(row['Acción'])}
+        ${badgeForEstadoValidacion(row['Estado de Validación'])}
+      </div>
+      ${row['Estado de Validación']==='Observado' ? `
+        <div class="alert bad"><span>⚠</span><div>
+          <b>La Torre de Control observó esta solicitud:</b> ${esc(row['Observación Torre de Control'])}
+          <div style="margin-top:8px;"><button type="button" class="btn small gold" onclick="marcarCorregido('${esc(row['ID Historial'])}')">Ya corregí esto — reenviar a la Torre de Control</button></div>
+        </div></div>
+      ` : row['Estado de Validación']==='Registrado' ? `
+        <div class="alert info"><span>ℹ</span><div>Esta solicitud está <b>Registrada</b>, en espera de que la Torre de Control la contraste y valide.</div></div>
+      ` : row['Estado de Validación']==='Corregido' ? `
+        <div class="alert warn"><span>↺</span><div>Corrección enviada — en espera de que la Torre de Control la revalide.</div></div>
+      ` : row['Estado de Validación']==='Publicado' ? `
+        <div class="alert ok"><span>✓</span><div>Publicada en el inventario oficial.</div></div>
+      ` : ''}
+
+      <form onsubmit="return submitEstado(event,'${esc(row['ID Historial'])}')">
+        ${api ? `
+        <fieldset class="section">
+          <legend>Datos del componente — corrección (Catálogo_APIs) ${badgeForTipoComponente(api['Tipo de Componente'])}</legend>
+          <div class="hint" style="margin-top:-6px;margin-bottom:10px;">Corrige aquí cualquier dato del componente que la Torre de Control haya observado — nombre, descripción, dominio, complejidad, etc. — sin crear una nueva Modificación en el histórico.</div>
+          <div class="form-grid g3">
+            <div class="field"><label>ID</label><input value="${esc(api['ID API'])}" readonly></div>
+            <div class="field"><label>Estado general</label><select id="e_estado_general">${getList('EstadoGeneralAPI').map(p=>`<option ${api['Estado_General_API']===p?'selected':''}>${esc(p)}</option>`).join('')}</select></div>
+            <div class="field"><label>Versión actual</label><input id="e_version" value="${esc(api['Versión Actual'])}"></div>
+          </div>
+          <div class="form-grid" style="margin-top:14px;">
+            <div class="field span2"><label>Nombre</label><input id="e_nombre" value="${esc(api['Nombre API'])}"></div>
+            <div class="field span2"><label>Descripción</label><textarea id="e_desc">${esc(api['Descripción'])}</textarea></div>
+          </div>
+          <div class="form-grid g3" style="margin-top:14px;">
+            ${tipoComponenteOf(api)==='API' ? `<div class="field"><label>Tipo API (capa BIAN)</label><select id="e_tipoapi">${getList('TipoAPI_BIAN').map(p=>`<option value="${esc(p.trim())}" ${String(api['Tipo API']).trim()===p.trim()?'selected':''}>${esc(p.trim())}</option>`).join('')}</select></div>` : ''}
+            <div class="field"><label>Complejidad</label><select id="e_complejidad">${getList('Complejidad').map(p=>`<option ${api['Complejidad']===p?'selected':''}>${esc(p)}</option>`).join('')}</select></div>
+            <div class="field"><label>Estilo de diseño</label><select id="e_estilo">${getList('ProtocoloEstilo').map(p=>`<option ${api['Estilo Diseño']===p?'selected':''}>${esc(p)}</option>`).join('')}</select></div>
+          </div>
+          <div class="form-grid g3" style="margin-top:14px;">
+            <div class="field"><label>Business Area</label><input id="e_area" value="${esc(api['Business Area'])}"></div>
+            <div class="field"><label>Business Domain</label><input id="e_domain" list="dl_domain_e2" value="${esc(api['Business Domain'])}"></div>
+            <div class="field"><label>Service Domain</label><input id="e_svc" list="dl_svc_e2" value="${esc(api['Service Domain'])}"></div>
+          </div>
+          <datalist id="dl_domain_e2">${domainListE.map(v=>`<option value="${esc(v)}">`).join('')}</datalist>
+          <datalist id="dl_svc_e2">${svcListE.map(v=>`<option value="${esc(v)}">`).join('')}</datalist>
+          <div class="form-grid g3" style="margin-top:14px;">
+            <div class="field"><label>Canal de integración</label><select id="e_canal">${getList('CanalIntegracion').map(p=>`<option ${String(api['Canal Integración (Despliegue)']).trim()===p.trim()?'selected':''}>${esc(p.trim())}</option>`).join('')}</select></div>
+            <div class="field span2"><label>URL OpenAPI / documentación</label><input id="e_url" value="${esc(api['URL OpenAPI (SWAGGER)'])}"></div>
+          </div>
+          <div class="form-grid g3" style="margin-top:14px;">
+            <div class="field"><label>Service Owner</label><input id="e_owner" value="${esc(api['Service Owner'])}"></div>
+            <div class="field span2"><label>Caso de Uso</label><input id="e_casouso" value="${esc(api['Caso de Uso'])}"></div>
+          </div>
+          <div class="form-grid" style="margin-top:14px;">
+            <div class="field"><label>Repositorios Involucrados</label><input id="e_repos" value="${esc(api['Repositorios Involucrados'])}"></div>
+            <div class="field"><label>Excepción / Riesgo Identificado</label><input id="e_excepcion" value="${esc(api['Excepción / Riesgo Identificado'])}"></div>
+          </div>
+        </fieldset>
+
+        <fieldset class="section">
+          <legend>Operaciones registradas — corrección rápida (Catálogo_Operaciones_API)</legend>
+          <div class="hint" style="margin-top:-6px;margin-bottom:10px;">Corrige aquí un método, path o descripción mal registrados sin crear una nueva Modificación en el histórico — útil cuando la Torre de Control observó algo en las operaciones.</div>
+          ${opRowsEditorExisting()}
+        </fieldset>` : ''}
+
+        <fieldset class="section">
+          <legend>Seguimiento del proyecto (Histórico_Proyectos_API)</legend>
+          <div class="form-grid g3">
+            <div class="field"><label>Tribu</label><input id="e_tribu" value="${esc(row['Tribu'])}" list="dl_tribu_e" placeholder="Ej. Riesgos - Satélite"></div>
+            <div class="field"><label>PO / Líder Usuario</label><input id="e_po" value="${esc(row['PO/Líder Usuario'])}"></div>
+            <div class="field"><label>TTL</label><input id="e_ttl" value="${esc(row['TTL'])}"></div>
+          </div>
+          <datalist id="dl_tribu_e">${uniqueVals(DB.hist,'Tribu').map(v=>`<option value="${esc(v)}">`).join('')}</datalist>
+          <div class="form-grid g3" style="margin-top:14px;">
+            <div class="field"><label>Jefe de Proyecto</label><input id="e_jp" value="${esc(row['Jefe Proyecto'])}"></div>
+            <div class="field"><label>Líder Técnico</label><input id="e_lt" value="${esc(row['Líder Técnico'])}"></div>
+            <div class="field"><label>Estado actual del proyecto</label><select id="e_estado">${getList('EstadoActual').map(p=>`<option ${row['Estado_Actual']===p?'selected':''}>${esc(p)}</option>`).join('')}</select></div>
+          </div>
+          <div class="form-grid g3" style="margin-top:14px;">
+            <div class="field"><label>Fecha fin diseño</label><input id="e_fdiseno" value="${esc(row['Fecha Fin Diseño'])}" placeholder="AAAA-MM-DD o TBD"></div>
+            <div class="field"><label>Fecha pase desarrollo</label><input id="e_fdesarrollo" value="${esc(row['Fecha Pase Desarrollo'])}" placeholder="AAAA-MM-DD o TBD"></div>
+            <div class="field"><label>Fecha pase QA</label><input id="e_fqa" value="${esc(row['Fecha Pase QA'])}" placeholder="AAAA-MM-DD o TBD"></div>
+          </div>
+          <div class="form-grid g3" style="margin-top:14px;">
+            <div class="field"><label>Fecha pase producción</label><input id="e_fprod" value="${esc(row['Fecha Pase Producción'])}" placeholder="AAAA-MM-DD o TBD"></div>
+            <div class="field"><label>Quarter (automático)</label><input id="e_quarter" value="${esc(row['Quarter Publicación'])}" readonly></div>
+          </div>
+          <div class="field" style="margin-top:14px;"><label>Comentarios</label><textarea id="e_comentarios">${esc(row['Comentarios'])}</textarea></div>
+        </fieldset>
+
+        <fieldset class="section">
+          <legend>Avance por etapa del ciclo de vida (Histórico_Proyectos_API)</legend>
+          ${etapasHabilitadas ? `
+          <div class="hint" style="margin-top:-6px;margin-bottom:10px;">Complementa las fechas de arriba con el estado de cada etapa — útil cuando aún no hay fecha de cierre pero la etapa ya está en curso.</div>
+          ` : `
+          <div class="alert info" style="margin-top:-6px;"><span>🔒</span><div>El flujo hacia Diseño, Desarrollo, Calidad y Producción se habilita cuando la Torre de Control <b>publica</b> esta solicitud (Estado de Validación = Publicado). Por ahora estos campos son de solo lectura.</div></div>
+          `}
+          <div class="form-grid g3">
+            <div class="field"><label>Etapa Planificación</label><select id="e_etplan" ${etapasHabilitadas?'':'disabled'}>${getList('EtapaEstado').map(p=>`<option ${row['Etapa Planificación']===p?'selected':''}>${esc(p)}</option>`).join('')}</select></div>
+            <div class="field"><label>Fecha fin planificación</label><input id="e_fplan" value="${esc(row['Fecha Fin Planificación'])}" placeholder="AAAA-MM-DD o TBD" ${etapasHabilitadas?'':'disabled'}></div>
+            <div class="field"><label>Etapa Diseño</label><select id="e_etdis" ${etapasHabilitadas?'':'disabled'}>${getList('EtapaEstado').map(p=>`<option ${row['Etapa Diseño']===p?'selected':''}>${esc(p)}</option>`).join('')}</select></div>
+          </div>
+          <div class="form-grid g3" style="margin-top:14px;">
+            <div class="field"><label>Etapa Desarrollo</label><select id="e_etdev" ${etapasHabilitadas?'':'disabled'}>${getList('EtapaEstado').map(p=>`<option ${row['Etapa Desarrollo']===p?'selected':''}>${esc(p)}</option>`).join('')}</select></div>
+            <div class="field"><label>Etapa Calidad</label><select id="e_etqa" ${etapasHabilitadas?'':'disabled'}>${getList('EtapaEstado').map(p=>`<option ${row['Etapa Calidad']===p?'selected':''}>${esc(p)}</option>`).join('')}</select></div>
+            <div class="field"><label>Etapa Producción</label><select id="e_etprod" ${etapasHabilitadas?'':'disabled'}>${getList('EtapaEstado').map(p=>`<option ${row['Etapa Producción']===p?'selected':''}>${esc(p)}</option>`).join('')}</select></div>
+          </div>
+        </fieldset>
+
+        <div class="formbar">
+          <button type="button" class="btn ghost" onclick="estadoState.histId=''; renderApp();">‹ Elegir otro registro</button>
+          <button type="submit" class="btn gold">Guardar cambios</button>
+        </div>
+      </form>
+    </div>
+  `;
+}
+function submitEstado(ev, histId){
+  ev.preventDefault();
+  const row = DB.hist.find(h=>h['ID Historial']===histId);
+  const api = findApi(row['ID API']);
+  if(api && $('#e_estado_general')){
+    api['Estado_General_API'] = $('#e_estado_general').value;
+    api['Versión Actual'] = $('#e_version').value.trim();
+    api['Nombre API'] = $('#e_nombre').value.trim();
+    api['Descripción'] = $('#e_desc').value.trim();
+    if($('#e_tipoapi')) api['Tipo API'] = $('#e_tipoapi').value;
+    api['Complejidad'] = $('#e_complejidad').value;
+    api['Estilo Diseño'] = $('#e_estilo').value;
+    api['Business Area'] = $('#e_area').value.trim();
+    api['Business Domain'] = $('#e_domain').value.trim();
+    api['Service Domain'] = $('#e_svc').value.trim();
+    api['Canal Integración (Despliegue)'] = $('#e_canal').value;
+    api['URL OpenAPI (SWAGGER)'] = $('#e_url').value.trim();
+    api['Service Owner'] = $('#e_owner').value.trim();
+    api['Caso de Uso'] = $('#e_casouso').value.trim();
+    api['Repositorios Involucrados'] = $('#e_repos').value.trim();
+    api['Excepción / Riesgo Identificado'] = $('#e_excepcion').value.trim();
+    modOps.forEach(r=>{
+      if(!r['Path - Endpoint'] || !r['Path - Endpoint'].trim()) return;
+      if(!r['ID Operación']){
+        r['ID Operación'] = nextOpId();
+        r['ID API'] = row['ID API'];
+        DB.ops.push({...r});
+      } else {
+        const existing = DB.ops.find(o=>o['ID Operación']===r['ID Operación']);
+        if(existing) Object.assign(existing, r);
+      }
+    });
+  }
+  row['Tribu']=$('#e_tribu').value.trim();
+  row['PO/Líder Usuario']=$('#e_po').value.trim();
+  row['TTL']=$('#e_ttl').value.trim();
+  row['Jefe Proyecto']=$('#e_jp').value.trim();
+  row['Líder Técnico']=$('#e_lt').value.trim();
+  row['Estado_Actual']=$('#e_estado').value;
+  row['Fecha Fin Diseño']=$('#e_fdiseno').value.trim();
+  row['Fecha Pase Desarrollo']=$('#e_fdesarrollo').value.trim();
+  row['Fecha Pase QA']=$('#e_fqa').value.trim();
+  row['Fecha Pase Producción']=$('#e_fprod').value.trim();
+  row['Quarter Publicación']=computeQuarter(row['Fecha Pase Producción']);
+  row['Comentarios']=$('#e_comentarios').value.trim();
+  row['Etapa Planificación']=$('#e_etplan').value;
+  row['Fecha Fin Planificación']=$('#e_fplan').value.trim();
+  row['Etapa Diseño']=$('#e_etdis').value;
+  row['Etapa Desarrollo']=$('#e_etdev').value;
+  row['Etapa Calidad']=$('#e_etqa').value;
+  row['Etapa Producción']=$('#e_etprod').value;
+  row['Fecha_Última_Modificación']=new Date().toISOString().slice(0,10);
+  scheduleSave();
+  toast('Estado y fechas actualizados.','ok');
+  renderApp();
+  return false;
+}
+
+/* ---------------------------------------------------------------- TORRE DE CONTROL (validación) */
+/*
+  Refleja el flujo socializado con los equipos:
+  Arquitecto de Solución: 0) Revisa el inventario (Buscar API) -> 1) Inscribe en el backlog (Crear/Modificar/Reutilizar,
+  quedan en Histórico_Proyectos_API) -> 2) Aviso automático a la Torre (toast al guardar).
+  Torre de Control: contraste y validación contra el estándar de gobierno (naming, duplicidad, owner, clasificación).
+    - Observado -> se notifica; el Arquitecto corrige la MISMA fila (no crea una nueva) -> pasa a Corregido -> vuelve a validarse.
+    - Correcto -> Publicado: el registro queda oficial en el inventario (fuente única de verdad).
+*/
+let torreState = {chip:'pendientes', q:''};
+function viewTorreControl(){
+  const s = torreState;
+  let rows = DB.hist.slice();
+  if(s.chip==='pendientes') rows = rows.filter(h=>['Registrado','Corregido'].includes(h['Estado de Validación']));
+  else if(s.chip==='observados') rows = rows.filter(h=>h['Estado de Validación']==='Observado');
+  else if(s.chip==='publicados') rows = rows.filter(h=>h['Estado de Validación']==='Publicado');
+  // 'todos' no filtra
+
+  if(s.q){
+    const q = s.q.toLowerCase();
+    rows = rows.filter(h=>{
+      const a = findApi(h['ID API']);
+      return [h['ID API'], h['Proyecto'], h['Arquitecto Solución'], a?a['Nombre API']:'']
+        .some(v=>String(v||'').toLowerCase().includes(q));
+    });
+  }
+  rows = rows.slice().sort((a,b)=> String(a['Fecha Registro']||'').localeCompare(String(b['Fecha Registro']||'')));
+
+  const pendientes = pendientesValidacion().length;
+  const chips = [
+    {k:'pendientes', l:`Pendientes de validar (${pendientes})`},
+    {k:'observados', l:'Observados (por corregir)'},
+    {k:'publicados', l:'Publicados'},
+    {k:'todos', l:'Todos'},
+  ];
+
+  return `
+    ${topbar('Torre de Control · Validar Solicitudes', 'Contraste y validación de lo inscrito en el backlog contra el estándar de gobierno: naming, duplicidad, owner de negocio y clasificación correcta.')}
+    ${pendientes ? `<div class="alert warn"><span>★</span><div><b>${pendientes} solicitud(es)</b> esperan contraste y validación de la Torre de Control.</div></div>` : `<div class="alert ok"><span>✓</span><div>No hay solicitudes pendientes de validar.</div></div>`}
+
+    <div class="card">
+      <div class="search-row">
+        <input type="search" id="torreSearchInput" style="flex:1;" placeholder="Buscar por ID API, nombre, proyecto o arquitecto…" value="${esc(s.q)}" oninput="torreState.q=this.value; reRenderKeepingFocus('torreSearchInput');">
+      </div>
+      <div class="chips" style="margin-bottom:14px;">
+        ${chips.map(ch=>`<div class="chip ${s.chip===ch.k?'active':''}" onclick="torreState.chip='${ch.k}'; renderApp();">${esc(ch.l)}</div>`).join('')}
+      </div>
+      <div class="table-wrap"><table>
+        <thead><tr><th>Componente</th><th>Nombre</th><th>Proyecto</th><th>Acción</th><th>Arquitecto</th><th>Fecha registro</th><th>Estado de Validación</th><th>Observación</th><th></th></tr></thead>
+        <tbody>
+          ${rows.map(h=>{
+            const a = findApi(h['ID API']);
+            const enCurso = ['Registrado','Corregido'].includes(h['Estado de Validación']);
+            const esNueva = h['Estado de Validación']==='Registrado' && fmtDate(h['Fecha Registro'])===fmtDate(new Date().toISOString());
+            return `<tr>
+              <td><code class="idtag">${esc(h['ID API'])}</code><br>${badgeForTipoComponente(a?a['Tipo de Componente']:'')}${esNueva?' <span class="badge warn">nuevo</span>':''}</td>
+              <td class="wrap">${a?esc(a['Nombre API']):'<i>(no está en Catálogo)</i>'}</td>
+              <td class="wrap">${esc(h['Proyecto'])}</td>
+              <td>${badgeForAccion(h['Acción'])}</td>
+              <td class="wrap">${esc(h['Arquitecto Solución'])}</td>
+              <td>${esc(fmtDate(h['Fecha Registro']))}</td>
+              <td>${badgeForEstadoValidacion(h['Estado de Validación'])}</td>
+              <td class="wrap">${esc(h['Observación Torre de Control'])||'—'}</td>
+              <td style="white-space:nowrap;">
+                <button class="rowbtn" style="margin-right:8px;" onclick="openApiDetail('${esc(h['ID API'])}')">Ver ficha ›</button>
+                ${enCurso ? `
+                  <button class="btn small gold" onclick="marcarPublicado('${esc(h['ID Historial'])}')">✓ Publicar</button>
+                  <button class="btn small danger" onclick="abrirObservarModal('${esc(h['ID Historial'])}')">⚠ Observar</button>
+                ` : ''}
+              </td>
+            </tr>`;
+          }).join('') || `<tr><td colspan="9" class="empty-state">Sin solicitudes en este filtro.</td></tr>`}
+        </tbody>
+      </table></div>
+    </div>
+  `;
+}
+function marcarPublicado(histId){
+  const row = DB.hist.find(h=>h['ID Historial']===histId);
+  if(!row) return;
+  row['Estado de Validación']='Publicado';
+  row['Fecha Validación']=new Date().toISOString().slice(0,10);
+  scheduleSave();
+  toast(`Solicitud de ${row['ID API']} publicada en el inventario oficial.`,'ok');
+  renderApp();
+  syncGovernanceAction();
+}
+function abrirObservarModal(histId){
+  const row = DB.hist.find(h=>h['ID Historial']===histId);
+  if(!row) return;
+  const body = `
+    <h3>Registrar observación · <code class="idtag">${esc(row['ID API'])}</code></h3>
+    <p class="hint">La fila no se duplica: el Arquitecto corrige este mismo registro y lo reenvía como "Corregido" para que vuelvas a validarlo.</p>
+    <form onsubmit="return submitObservar(event,'${esc(histId)}')">
+      <div class="field"><label>Observación <span class="req">*</span></label><textarea id="obs_texto" required placeholder="Ej. Naming no sigue el estándar BIAN, falta owner de negocio…"></textarea></div>
+      <div class="formbar">
+        <button type="button" class="btn ghost" onclick="closeModal()">Cancelar</button>
+        <button type="submit" class="btn danger">Marcar como Observado</button>
+      </div>
+    </form>
+  `;
+  openModal(body);
+}
+function submitObservar(ev, histId){
+  ev.preventDefault();
+  const row = DB.hist.find(h=>h['ID Historial']===histId);
+  const texto = $('#obs_texto').value.trim();
+  if(!texto){ toast('Escribe la observación.','bad'); return false; }
+  row['Estado de Validación']='Observado';
+  row['Observación Torre de Control']=texto;
+  row['Fecha Validación']=new Date().toISOString().slice(0,10);
+  scheduleSave();
+  toast(`Observación registrada para ${row['ID API']}. El Arquitecto debe corregir y reenviar.`,'bad');
+  closeModal();
+  renderApp();
+  syncGovernanceAction();
+  return false;
+}
+function marcarCorregido(histId){
+  const row = DB.hist.find(h=>h['ID Historial']===histId);
+  if(!row) return;
+  row['Estado de Validación']='Corregido';
+  scheduleSave();
+  toast('Marcado como Corregido — vuelve a la cola de la Torre de Control para revalidación.','ok');
+  renderApp();
+  syncGovernanceAction();
+}
+
+/* ---------------------------------------------------------------- CRUCE APIs x PROYECTOS */
+let cruceState = {group:'Business Domain', q:''};
+const CRUCE_GROUP_COLORS = ['#2B5F8A','#B8862E','#2F7A56','#7A4FA0','#B0392F','#3D5568'];
+function quarterSortKey(q){
+  const m = /^Q(\d)-(\d{4})$/.exec(q||'');
+  if(!m) return 999999;
+  return parseInt(m[2],10)*10 + parseInt(m[1],10);
+}
+function viewCruce(){
+  const proyectos = uniqueVals(DB.hist,'Proyecto');
+  const proyectoInfo = {};
+  DB.hist.forEach(h=>{
+    if(!h['Proyecto']) return;
+    const info = proyectoInfo[h['Proyecto']] || {fecha:'', lider:'', tribu:'', quarter:''};
+    // Responsable (TTL o JP) y Tribu: se toma del registro más reciente que traiga el dato
+    if(String(h['Fecha Registro']||'') >= String(info.fecha||'')){
+      info.fecha = h['Fecha Registro']||info.fecha;
+      if(h['TTL'] || h['Jefe Proyecto']) info.lider = h['TTL'] || h['Jefe Proyecto'];
+      if(h['Tribu']) info.tribu = h['Tribu'];
+    }
+    // Quarter comprometido: se toma el más avanzado (último) registrado para el proyecto
+    if(h['Quarter Publicación'] && quarterSortKey(h['Quarter Publicación']) > quarterSortKey(info.quarter)){
+      info.quarter = h['Quarter Publicación'];
+    }
+    proyectoInfo[h['Proyecto']] = info;
+  });
+
+  const groupField = cruceState.group;
+  let apis = DB.apis.slice();
+  if(cruceState.q){
+    const q = cruceState.q.toLowerCase();
+    apis = apis.filter(a => [a['Nombre API'],a['Service Domain'],a['Business Domain']].some(v=>String(v||'').toLowerCase().includes(q)));
+  }
+  const groups = {};
+  apis.forEach(a=>{
+    const raw = groupField==='Tipo API' ? String(a[groupField]||'').trim() : a[groupField];
+    const k = raw || 'Sin categoría';
+    (groups[k]=groups[k]||[]).push(a);
+  });
+  const groupEntries = Object.entries(groups).sort((x,y)=>y[1].length-x[1].length);
+
+  const cellMap = {};
+  DB.hist.forEach(h=>{
+    if(!h['ID API']||!h['Proyecto']) return;
+    const key = h['ID API']+'|'+h['Proyecto'];
+    const cur = cellMap[key];
+    if(!cur || String(h['Fecha Registro']||'') >= String(cur['Fecha Registro']||'')) cellMap[key]=h;
+  });
+
+  // Ordena proyectos por quarter comprometido (cronológico) y arma los grupos de columnas
+  const proyectosOrdenados = proyectos.slice().sort((a,b)=>
+    quarterSortKey(proyectoInfo[a].quarter) - quarterSortKey(proyectoInfo[b].quarter) || a.localeCompare(b));
+  const quarterGroups = [];
+  proyectosOrdenados.forEach(p=>{
+    const label = proyectoInfo[p].quarter ? `CON COMPROMISO EN ${proyectoInfo[p].quarter}` : 'SIN COMPROMISO DEFINIDO';
+    const last = quarterGroups[quarterGroups.length-1];
+    if(last && last.label===label) last.projects.push(p);
+    else quarterGroups.push({label, projects:[p]});
+  });
+
+  const colWidth = 148;
+  return `
+    ${topbar('Cruce APIs × Proyectos', 'Matriz de compromiso: qué proyectos han tocado cada API, en qué quarter se comprometieron y en qué estado quedó cada interacción.')}
+    <div class="card">
+      <div class="search-row">
+        <input type="search" id="cruceSearchInput" placeholder="Filtrar por nombre, Service Domain o Business Domain…" value="${esc(cruceState.q)}" oninput="cruceState.q=this.value; reRenderKeepingFocus('cruceSearchInput');">
+        <select onchange="cruceState.group=this.value; renderApp();">
+          <option value="Business Domain" ${groupField==='Business Domain'?'selected':''}>Agrupar filas por Business Domain</option>
+          <option value="Service Domain" ${groupField==='Service Domain'?'selected':''}>Agrupar filas por Service Domain</option>
+          <option value="Tipo API" ${groupField==='Tipo API'?'selected':''}>Agrupar filas por Tipo BIAN</option>
+          <option value="Estado_General_API" ${groupField==='Estado_General_API'?'selected':''}>Agrupar filas por Estado General</option>
+        </select>
+      </div>
+      <div class="hint">${apis.length} APIs · ${proyectos.length} proyectos con actividad registrada · desplázate horizontalmente para ver todos los proyectos.</div>
+      ${!proyectos.length ? `<div class="empty-state">Aún no hay registros en Histórico_Proyectos_API para construir el cruce.</div>` : `
+      <div class="table-wrap" style="max-height:70vh;">
+        <table style="min-width:${(proyectos.length*colWidth)+260}px;">
+          <thead>
+            <tr>
+              <th rowspan="2" style="position:sticky;left:0;top:0;z-index:5;min-width:240px;">API / Service Domain</th>
+              ${quarterGroups.map(g=>`<th colspan="${g.projects.length}" style="text-align:center;background:var(--gold-dark);">${esc(g.label)}</th>`).join('')}
+            </tr>
+            <tr>
+              ${proyectosOrdenados.map(p=>{
+                const info = proyectoInfo[p]||{};
+                return `<th style="min-width:${colWidth}px;top:34px;">
+                  ${info.tribu?`<span style="font-weight:400;font-size:10px;color:#9FB6C4;">${esc(info.tribu)}</span><br>`:''}
+                  ${esc(p)}<br>
+                  <span style="font-weight:400;font-size:10px;color:#9FB6C4;">${esc(info.lider||'')}</span>
+                </th>`;
+              }).join('')}
+            </tr>
+          </thead>
+          <tbody>
+            ${groupEntries.map(([g,list],gi)=>`
+              <tr>
+                <td colspan="${proyectosOrdenados.length+1}" style="position:sticky;left:0;background:${CRUCE_GROUP_COLORS[gi%CRUCE_GROUP_COLORS.length]};color:#fff;font-weight:700;white-space:nowrap;">${esc(g)} <span style="opacity:.8;font-weight:400;">(${list.length})</span></td>
+              </tr>
+              ${list.map(a=>`
+              <tr>
+                <td style="position:sticky;left:0;background:var(--paper-2);font-weight:600;" class="wrap">
+                  ${esc(a['Nombre API']||a['Service Domain']||a['ID API'])}
+                  <div style="font-weight:400;color:var(--slate-soft);font-size:11px;">${esc(a['ID API'])}${a['Service Domain']?' · '+esc(a['Service Domain']):''}</div>
+                </td>
+                ${proyectosOrdenados.map(p=>{
+                  const h = cellMap[a['ID API']+'|'+p];
+                  if(!h) return `<td></td>`;
+                  const accion = h['Acción']!=='Creación' ? h['Acción'] : '';
+                  return `<td>${badgeForEstadoActual(h['Estado_Actual'])}${accion?`<div style="font-size:10px;color:var(--slate-soft);margin-top:2px;">${esc(accion)}</div>`:''}</td>`;
+                }).join('')}
+              </tr>`).join('')}
+            `).join('') || `<tr><td class="empty-state" colspan="${proyectosOrdenados.length+1}">Sin APIs para mostrar con este filtro.</td></tr>`}
+          </tbody>
+        </table>
+      </div>`}
+    </div>
+  `;
+}
+
+/* ---------------------------------------------------------------- CONSULTAS (10-18) */
+const CONSULTA_LABELS = {
+  dependencias:'10. Dependencias', operaciones:'11. Operaciones', dominio:'12. APIs por Dominio', bian:'13. APIs por capa BIAN',
+  sinowner:'14. APIs sin Owner', sinops:'15. APIs sin Operaciones', reutilizadas:'16. APIs Reutilizadas', modificadas:'17. APIs Modificadas', creadas:'18. APIs Creadas',
+  excepciones:'19. Excepciones / Riesgos', gobierno:'20. Gobierno por Revisar'
+};
+function viewConsultas(){
+  const chips = Object.entries(CONSULTA_LABELS).map(([k,l])=>
+    `<div class="chip ${CONSULTA_MODE===k?'active':''}" onclick="setTab('consultas','${k}')">${esc(l)}</div>`).join('');
+
+  let content = '';
+  if(CONSULTA_MODE==='dependencias'){
+    content = simpleTable(['Consumidor','Consumida','Tipo','Criticidad','Comentarios'],
+      DB.deps.map(d=>[`${esc(d['ID_API_Consumidor'])} ${esc(d['Nombre_API_Consumidor'])}`, `${esc(d['ID_API_Consumida'])} ${esc(d['Nombre_API_Consumida'])}`, esc(d['Tipo_Dependencia']), badgeForRiesgoCriticidad(d['Criticidad']), esc(d['Comentarios'])]));
+  } else if(CONSULTA_MODE==='operaciones'){
+    content = simpleTable(['ID Operación','API','Método','Path','Estado'],
+      DB.ops.map(o=>{const a=findApi(o['ID API']); return [esc(o['ID Operación']), `${esc(o['ID API'])} ${a?esc(a['Nombre API']):''}`, esc(o['Método HTTP']), esc(o['Path - Endpoint']), o['Estado Operación']==='Activa'?'<span class="badge ok">Activa</span>':'<span class="badge bad">Deprecada</span>'];}));
+  } else if(CONSULTA_MODE==='dominio'){
+    const byDom = {};
+    DB.apis.forEach(a=>{ const k=a['Business Domain']||'Sin dominio'; (byDom[k]=byDom[k]||[]).push(a); });
+    content = Object.entries(byDom).sort((a,b)=>b[1].length-a[1].length).map(([dom,list])=>`
+      <div class="card"><h3>${esc(dom)} <span class="badge neutral">${list.length}</span></h3>
+      ${simpleTable(['ID','Nombre','Service Domain','Estado'], list.map(a=>[esc(a['ID API']),esc(a['Nombre API']),esc(a['Service Domain']),badgeForEstadoApi(a['Estado_General_API'])]))}
+      </div>`).join('') || emptyCard();
+    return topbar('Consultas del catálogo', 'Reportes de apoyo al gobierno de APIs — menú 10 a 18.') + `<div class="chips" style="margin-bottom:16px;">${chips}</div>` + content;
+  } else if(CONSULTA_MODE==='bian'){
+    const byTipo = {};
+    DB.apis.forEach(a=>{ const k=String(a['Tipo API']||'Sin tipo').trim(); (byTipo[k]=byTipo[k]||[]).push(a); });
+    content = Object.entries(byTipo).map(([tipo,list])=>`
+      <div class="card"><h3>${esc(tipo)} <span class="badge neutral">${list.length}</span></h3>
+      ${simpleTable(['ID','Nombre','Business Domain','Estado'], list.map(a=>[esc(a['ID API']),esc(a['Nombre API']),esc(a['Business Domain']),badgeForEstadoApi(a['Estado_General_API'])]))}
+      </div>`).join('') || emptyCard();
+    return topbar('Consultas del catálogo', 'Reportes de apoyo al gobierno de APIs — menú 10 a 18.') + `<div class="chips" style="margin-bottom:16px;">${chips}</div>` + content;
+  } else if(CONSULTA_MODE==='sinowner'){
+    const list = DB.apis.filter(a=>!lastArchitectFor(a['ID API']));
+    content = `<div class="alert info"><span>ℹ</span><div>Se considera "sin owner" al API que no tiene ningún Arquitecto de Solución asociado en su histórico de proyectos.</div></div>` +
+      simpleTable(['ID','Nombre','Business Domain','Estado'], list.map(a=>[esc(a['ID API']),esc(a['Nombre API']),esc(a['Business Domain']),badgeForEstadoApi(a['Estado_General_API'])]));
+  } else if(CONSULTA_MODE==='sinops'){
+    const list = DB.apis.filter(a=>opsForApi(a['ID API']).length===0);
+    content = simpleTable(['ID','Nombre','Business Domain','Estado'], list.map(a=>[esc(a['ID API']),esc(a['Nombre API']),esc(a['Business Domain']),badgeForEstadoApi(a['Estado_General_API'])]));
+  } else if(CONSULTA_MODE==='excepciones'){
+    const list = DB.apis.filter(a=>String(a['Excepción / Riesgo Identificado']||'').trim()!=='');
+    content = `<div class="alert bad"><span>⚠</span><div>APIs con una excepción o riesgo declarado (columna <b>Excepción / Riesgo Identificado</b>) — típicamente hallazgos de seguridad con compromiso de remediación pendiente.</div></div>` +
+      simpleTable(['ID','Nombre','Business Domain','Service Owner','Excepción / Riesgo'], list.map(a=>[esc(a['ID API']),esc(a['Nombre API']),esc(a['Business Domain']),esc(a['Service Owner']),esc(a['Excepción / Riesgo Identificado'])]));
+  } else if(CONSULTA_MODE==='gobierno'){
+    const list = DB.apis.filter(a=>String(a['Estado de Gobierno']||'').toLowerCase().startsWith('revisar') || String(a['Estado de Gobierno']||'').toLowerCase().startsWith('pendiente'));
+    content = `<div class="alert warn"><span>ℹ</span><div>APIs cuyo <b>Estado de Gobierno</b> quedó como "Revisar" (posible duplicado o ya existe en BIAN) o "Pendiente de definición" — requieren decisión de Arquitectura antes de continuar.</div></div>` +
+      simpleTable(['ID','Nombre','Business Domain','Estado de Gobierno','Posible duplicado','Existe en BIAN'], list.map(a=>[esc(a['ID API']),esc(a['Nombre API']),esc(a['Business Domain']),badgeForEstadoGobierno(a['Estado de Gobierno']),esc(a['Posible Duplicado en Backlog']),esc(a['Existe en Catálogo BIAN'])]));
+  } else if(CONSULTA_MODE==='reutilizadas' || CONSULTA_MODE==='modificadas' || CONSULTA_MODE==='creadas'){
+    const accion = {reutilizadas:'Reutilización', modificadas:'Modificación', creadas:'Creación'}[CONSULTA_MODE];
+    const byApi = {};
+    DB.hist.filter(h=>h['Acción']===accion).forEach(h=>{ (byApi[h['ID API']]=byApi[h['ID API']]||[]).push(h); });
+    const list = Object.entries(byApi).map(([id,rows])=>({id, a:findApi(id), n:rows.length, last:rows[rows.length-1]}));
+    content = simpleTable(['ID','Nombre','Veces','Último proyecto','Última fecha'],
+      list.map(x=>[esc(x.id), x.a?esc(x.a['Nombre API']):'<i>(no está en Catálogo)</i>', x.n, esc(x.last['Proyecto']), esc(fmtDate(x.last['Fecha Registro']))]));
+  }
+
+  return `
+    ${topbar('Consultas del catálogo', 'Reportes de apoyo al gobierno de APIs — menú 10 a 18.')}
+    <div class="chips" style="margin-bottom:16px;">${chips}</div>
+    <div class="card">${content}</div>
+  `;
+}
+function simpleTable(headers, rows){
+  if(!rows.length) return emptyCard();
+  return `<div class="table-wrap"><table><thead><tr>${headers.map(h=>`<th>${esc(h)}</th>`).join('')}</tr></thead>
+    <tbody>${rows.map(r=>`<tr>${r.map(c=>`<td class="wrap">${c}</td>`).join('')}</tr>`).join('')}</tbody></table></div>`;
+}
+function emptyCard(){ return `<div class="empty-state"><div class="big">Sin resultados</div>No hay registros para esta consulta todavía.</div>`; }
+
+/* ---------------------------------------------------------------- LISTAS DE VALIDACIÓN */
+function viewListas(){
+  const cards = HEADERS.listas.map(col=>{
+    const vals = getList(col);
+    return `<div class="card">
+      <h3>${esc(col)}</h3>
+      <div class="tag-list" id="lista_${col}">
+        ${vals.map((v,i)=>`<span class="tag" style="display:inline-flex;align-items:center;gap:6px;">${esc(v)} <button class="iconbtn" style="width:18px;height:18px;font-size:10px;padding:0;" onclick="removeListVal('${col}',${i})">✕</button></span>`).join('')}
+      </div>
+      <div class="search-row" style="margin-top:10px;">
+        <input type="text" id="add_${col}" placeholder="Agregar valor…" style="max-width:260px;" onkeydown="if(event.key==='Enter'){event.preventDefault(); addListVal('${col}');}">
+        <button class="btn small" onclick="addListVal('${col}')">Agregar</button>
+      </div>
+    </div>`;
+  }).join('');
+  return `
+    ${topbar('Listas de Validación', 'Controla los valores permitidos en los formularios de captura (hoja Listas_Validacion). Los cambios se reflejan de inmediato en todos los selects.')}
+    <div class="alert info"><span>ℹ</span><div>Estas listas viajan con el archivo exportado en la hoja <b>Listas_Validacion</b>. Si importas un Excel con esa hoja, sus valores reemplazan a los que edites aquí.</div></div>
+    ${cards}
+  `;
+}
+function addListVal(col){
+  const input = document.getElementById('add_'+col);
+  const v = input.value.trim();
+  if(!v) return;
+  if(!DB.listas[col] || !DB.listas[col].length) DB.listas[col] = [...DEFAULT_LISTS[col]];
+  if(!DB.listas[col].includes(v)) DB.listas[col].push(v);
+  scheduleSave();
+  renderApp();
+}
+function removeListVal(col, idx){
+  if(!DB.listas[col] || !DB.listas[col].length) DB.listas[col] = [...DEFAULT_LISTS[col]];
+  DB.listas[col].splice(idx,1);
+  scheduleSave();
+  renderApp();
+}
+
+/* ---------------------------------------------------------------- GUÍA DE USO */
+function viewGuia(){
+  return `
+    ${topbar('Guía de Uso', 'Cómo usar esta consola junto con el Excel maestro del Gobierno Centralizado de APIs.')}
+    <div class="card guide">
+      <h4>1. El Excel sigue siendo la fuente maestra</h4>
+      <p>Esta consola es la interfaz de captura y consulta. Tienes dos formas de conectarla con el Excel maestro:</p>
+      <div class="example">
+        <b>Opción A — Edición directa (recomendada, Chrome/Edge):</b> si tu biblioteca de SharePoint está sincronizada en tu PC vía OneDrive, usa <b>"Editar archivo local (auto-guardado)"</b> y selecciona el Excel desde esa carpeta. Cada cambio que hagas en la consola se escribe automáticamente en ese mismo archivo, sin exportar ni volver a subir nada — OneDrive lo sincroniza solo hacia SharePoint.<br><br>
+        <b>Opción B — Manual (cualquier navegador):</b> usa <b>Importar Excel</b> para cargar el archivo, trabaja tus cambios, y al terminar usa <b>Exportar Excel</b> para descargar la versión actualizada y reemplazarla en el repositorio compartido.
+      </div>
+      <p style="margin-top:10px;">La conexión directa (Opción A) se pierde si cierras la pestaña del navegador — deberás volver a conectar el archivo la próxima vez que abras la consola (es una limitación de seguridad del navegador, no de esta herramienta).</p>
+      <div class="example">Además, la consola guarda un <b>borrador de trabajo</b> automáticamente (compartido entre quienes usan este enlace) para que no pierdas cambios entre sesiones — pero ese borrador nunca sustituye al Excel oficial.</div>
+
+      <h4>2. Modelo Catálogo + Histórico</h4>
+      <p>El API es un artefacto técnico (<b>Catálogo_APIs</b>) separado de las interacciones de proyectos con esa API a lo largo del tiempo (<b>Histórico_Proyectos_API</b>, una fila nueva por cada acción). Así, un proyecto puede crear un API, otro modificarla después y un tercero reutilizarla, cada uno con sus propios roles, fechas y comentarios, sin sobrescribir al anterior.</p>
+
+      <h4>3. Orden para registrar un componente nuevo (API, microservicio, tópico o batch)</h4>
+      <ol>
+        <li><b>Paso 0 — Revisa el inventario:</b> usa <b>Buscar API</b> antes de mover ficha, para no crear algo que ya existe y decidir si corresponde Registrar, Modificar o Reutilizar.</li>
+        <li><b>Paso 1 — Inscripción en el backlog:</b> usa <b>Registrar Componente</b> y elige primero el <b>Tipo de componente</b> (API, Microservicio, Tópico / Evento, Batch / Job u Otro) — el ID sugerido cambia de prefijo según el tipo (D para API, MS para microservicio, EVT para tópico/evento, BATCH para batch). Si es tipo API se pide además la capa BIAN; para los demás tipos ese campo se oculta. En el mismo formulario se registran sus <b>operaciones/endpoints</b> (obligatorio solo si es API) y sus <b>dependencias iniciales</b>. Queda automáticamente una fila en el Histórico con Acción = Creación.</li>
+        <li><b>Paso 2 — Aviso automático:</b> al guardar, la consola muestra el aviso de que la solicitud quedó <b>Registrada</b> y a la espera de que la Torre de Control la valide (ver punto 10).</li>
+      </ol>
+      <p>Todos los tipos de componente se guardan en el mismo Catálogo_APIs — es la única fuente de verdad, así que una dependencia hacia un microservicio, un tópico o un batch ya registrado se selecciona del catálogo igual que una API (ver punto 11).</p>
+
+      <h4>4. Cuando otro proyecto modifica o reutiliza un API existente</h4>
+      <p>No se edita la fila anterior del histórico: se agrega una fila nueva con el mismo ID API, el nuevo proyecto y la acción correspondiente. <b>Modificar API</b> además actualiza los atributos vigentes en el Catálogo (versión, estado, descripción) y permite agregar nuevas operaciones y nuevas dependencias sobre ese mismo API. <b>Reutilizar API</b> no toca el Catálogo ni las Operaciones. Ninguna de las dos aparece como acceso directo en el menú lateral — se llega a ellas desde la ficha de un API en <b>Buscar API</b> (botones "Modificar" / "Reutilizar"), igual que en el flujo socializado: primero se revisa el inventario, y solo desde ahí se decide sobre un API puntual.</p>
+
+      <h4>5. Acceso</h4>
+      <p>Esta consola tiene un único perfil técnico, con acceso completo a todas las funciones — no hay un login separado para Arquitecto de Solución y Torre de Control. La distinción de <b>roles del flujo</b> (quién inscribe vs. quién valida) se refleja en el <b>Estado de Validación</b> de cada registro, no en permisos de la herramienta: cualquier persona con el enlace puede inscribir una solicitud o, actuando como Torre de Control, validarla desde la pestaña <b>Validar Solicitudes</b>. El control de quién hace qué en la práctica se maneja por acuerdo de equipo, igual que el control de acceso al archivo/enlace.</p>
+
+      <h4>6. Verificación de reutilización</h4>
+      <p>Antes de crear o modificar un API, el paso de verificación busca coincidencias por nombre y dominio en el catálogo, para que confirmes si conviene reutilizar o modificar un API existente en vez de crear una nueva.</p>
+
+      <h4>7. Consultas de gobierno</h4>
+      <p>La pestaña <b>Consultas</b> agrupa los reportes de apoyo: dependencias, operaciones, APIs por dominio, por capa BIAN, sin owner, sin operaciones, reutilizadas, modificadas y creadas — igual que el menú original de 18 opciones del prompt maestro.</p>
+
+      <h4>8. Tribu y Cruce APIs × Proyectos</h4>
+      <p>Cada registro de histórico ahora también captura la <b>Tribu</b> responsable del proyecto (además de Proyecto, TTL, Jefe de Proyecto y Arquitecto). Se captura en Crear, Modificar, Reutilizar y también se puede corregir después desde Actualizar Estado.</p>
+      <p>La vista <b>Cruce APIs × Proyectos</b> arma una matriz: filas = APIs agrupadas por dominio/tipo/estado, columnas = proyectos agrupados por el <b>Quarter Publicación</b> comprometido (se calcula solo a partir de la Fecha Pase Producción), y bajo cada proyecto aparece la Tribu y el nombre del <b>TTL o Jefe de Proyecto</b> responsable — no el arquitecto. Cada celda muestra el estado de esa interacción específica.</p>
+
+      <h4>9. Campos de negocio del componente</h4>
+      <p>Cada Componente del Catálogo guarda: <b>Service Owner</b>, <b>Caso de Uso</b>, <b>Repositorios Involucrados</b> y <b>Excepción / Riesgo Identificado</b>. Se capturan al Registrar o Modificar el componente y se editan libremente. Los campos <b>Estado de Gobierno</b>, <b>Existe en Catálogo BIAN</b> y <b>Posible Duplicado en Backlog</b> ya <u>no</u> se autodeclaran aquí — quedaron obsoletos frente al circuito real de validación del punto 10 (Estado de Validación), que es la señal de gobierno que manda desde esta versión. Si un componente importado del Excel trae esos 3 campos con valor, la ficha los sigue mostrando como referencia histórica.</p>
+      <p>Cada registro de histórico también guarda el avance de <b>5 etapas del ciclo de vida</b> (Planificación, Diseño, Desarrollo, Calidad, Producción), independiente de las fechas de pase — útil para marcar una etapa "En proceso" antes de tener fecha de cierre. Se ven como badges compactos (PLAN·DIS·DEV·QA·PROD) en la ficha del componente y en Consultar Historial. <b>Importante:</b> estas etapas están bloqueadas (solo lectura) hasta que la Torre de Control publique la solicitud — ver punto 10.</p>
+      <div class="example">Usa las consultas <b>19. Excepciones / Riesgos</b> y <b>20. Gobierno por Revisar</b> para ubicar rápidamente qué componentes tienen un hallazgo de seguridad pendiente o quedaron con el antiguo Estado de Gobierno en Revisar (datos heredados del Excel).</div>
+
+      <h4>10. Flujo de validación con la Torre de Control (socializado con los equipos)</h4>
+      <p>Cada fila nueva de Histórico_Proyectos_API nace con <b>Estado de Validación = Registrado</b> y sigue este circuito:</p>
+      <div class="example">
+        <b>Registrado</b> → la Torre de Control la contrasta en <b>Validar Solicitudes</b> contra el estándar de gobierno (naming, duplicidad, owner de negocio, clasificación correcta).<br><br>
+        · Si está <b>Correcto</b> → se marca <b>Publicado</b>: queda oficial en el inventario, la fuente única de verdad, y recién ahí se habilita continuar el flujo hacia <b>Diseño, Desarrollo, Calidad o Producción</b> (las etapas del punto 9).<br>
+        · Si está <b>Observado</b> → se registra el motivo; el Arquitecto de Soluciones ve la observación en <b>Actualizar Estado y Fechas de Proyecto</b> y corrige ahí mismo <u>cualquier dato</u> que haya quedado mal: nombre, descripción, dominio de negocio, complejidad, Service Owner, fechas, Tribu, responsables, e incluso una operación mal registrada (método/path) gracias al bloque "Operaciones registradas — corrección rápida" — sin necesidad de pasar por Modificar API. Corrige <u>esa misma fila</u> (nunca crea una nueva) y la reenvía como <b>Corregido</b>, que vuelve a la cola de la Torre de Control para revalidarse.
+      </div>
+      <p>Al registrar o modificar un componente, la consola te lleva directo a su ficha para que confirmes visualmente que quedó en estado <b>Registrado</b> y fue enviado a la Torre de Control — no depende solo del aviso emergente (toast), que es temporal.</p>
+      <p>La pestaña <b>Torre de Control → Validar Solicitudes</b> es la bandeja de revisión: agrupa todo lo pendiente (Registrado + Corregido, con etiqueta "nuevo" el mismo día del registro), lo observado y lo ya publicado, con búsqueda, filtros, botón "Ver ficha" en cada fila para revisar el componente completo antes de decidir, y las acciones ✓ Publicar / ⚠ Observar. El dashboard también avisa cuántas solicitudes están esperando validación.</p>
+      <p style="color:var(--slate-soft);font-size:12px;">Nota: los registros que ya existían en el Excel antes de este cambio no tienen Estado de Validación (columna en blanco) — solo las solicitudes nuevas, creadas desde esta versión de la consola, entran al circuito Registrado → Observado/Corregido → Publicado.</p>
+      <p>Además de la ficha de confirmación, el badge "nuevo" y la alerta del dashboard, al Registrar, Modificar o Reutilizar un componente la consola envía un <b>correo real</b> a la Torre de Control: llama a un pequeño relay (Cloudflare Worker) que dispara un evento en GitHub, y un GitHub Action toma ese evento y manda el correo por SMTP. Esta página no tiene backend propio, así que ese relay es indispensable — sin él, no podría notificar por correo sin exponer credenciales en el código fuente público. Ver el documento de despliegue para configurarlo (Worker + secretos del repositorio + workflow de Actions).</p>
+
+      <h4>11. Operaciones y Dependencias: nacen en Registrar/Modificar Componente, se corrigen desde Gobierno</h4>
+      <p>Las operaciones y las dependencias de un componente ya no tienen un acceso directo en el menú <b>Catálogo</b>. Se registran donde deben nacer:</p>
+      <ul>
+        <li><b>Registrar Componente</b> incluye los pasos "Operaciones iniciales" (obligatorio solo si el tipo es API) y "Dependencias iniciales" (siempre opcional).</li>
+        <li><b>Modificar API</b> muestra las operaciones y dependencias existentes y permite agregar nuevas — no reemplaza ni borra lo ya registrado.</li>
+        <li><b>Actualizar Estado y Fechas de Proyecto</b> también permite corregir una operación existente sin crear una nueva fila de histórico (ver punto 10).</li>
+      </ul>
+      <p><b>Registrar Operaciones</b> y <b>Registrar Dependencias</b> se movieron al grupo <b>Gobierno</b> del menú lateral: siguen existiendo, pero ahora son pantallas de corrección para cuando algo quedó mal cargado o se necesita completar después, no el punto de entrada normal.</p>
+      <p>Una dependencia ya no asume que la "consumida" es siempre otra API — el inventario debe reflejar la realidad completa de integración. Al registrar una dependencia eliges primero el <b>Tipo de artefacto consumido</b>: <span class="tag">Componente del Catálogo</span> <span class="tag">Microservicio</span> <span class="tag">Evento / Topic</span> <span class="tag">Batch / Job</span> <span class="tag">Sistema Legado / Otro</span>. Con "Componente del Catálogo" seleccionas cualquier componente ya registrado (API, microservicio, tópico o batch); en cualquier otro caso escribes el nombre libremente porque todavía no está catalogado.</p>
+    </div>
+  `;
+}
+
+/* ==================================================================================
+   INICIALIZACIÓN
+   ================================================================================== */
+$('#modalBackdrop').addEventListener('click', (e)=>{ if(e.target.id==='modalBackdrop') closeModal(); });
+document.addEventListener('keydown', (e)=>{ if(e.key==='Escape') closeModal(); });
+
+async function init(){
+  renderApp();
+  const had = await loadPersisted();
+  if(had && PENDING_BATCH.length){
+    toast(`Se recuperó tu borrador con ${PENDING_BATCH.length} componente(s) sin enviar. Revísalos y presiona "Enviar a Torre de Control".`,'info');
+  } else if(githubConfigured()){
+    const ok = await loadFromGitHub();
+    if(ok) toast('Se cargó la versión más reciente del Excel oficial desde GitHub.','ok');
+    else if(had) toast('Se recuperó tu borrador de trabajo guardado (no se pudo contactar GitHub).','ok');
+  } else if(had){
+    toast('Se recuperó tu borrador de trabajo guardado.','ok');
+  }
+  renderApp();
+}
+init();
+</script>
+</body>
+</html>
